@@ -10,9 +10,11 @@ export default {
   name: 'HelloWorld',
   data(){
     return {
+      skyboxReady: false,
       camera: null,
       scene: null,
       renderer: null,
+      raycaster: null,
       mesh: null,
       mouseDown:false,
       touchDown:false,
@@ -33,25 +35,43 @@ export default {
       this.scene.updateMatrixWorld(true);
       this.camera = new THREE.PerspectiveCamera(72,window.innerWidth/window.innerHeight,0.01,1000);
       this.camera.target = new THREE.Vector3(0,0,0);
-      let geom = new THREE.SphereGeometry(1,32,16);
+      this.raycaster = new THREE.Raycaster();
+      let geom = new THREE.SphereGeometry(100,100,100);
       geom.scale(1,1,-1);
       let mat;
       let texture = new THREE.TextureLoader().load(
         "https://i.loli.net/2019/04/29/5cc6f0512a9cd.jpg",
-        (tex)=>{
-          mat = new THREE.MeshBasicMaterial({map: tex});
-          console.log(tex);
+        ()=>{this.skyboxReady = true;}
+        );//
+        mat = new THREE.MeshBasicMaterial({map: texture});
+        this.mesh = new THREE.Mesh(geom,mat);
+        this.scene.add(this.mesh);
+        this.scene.rotation.set(0,0,0);
+        this.renderer = new THREE.WebGLRenderer({antialias: true});
+        this.renderer.setSize(window.innerWidth,window.innerHeight);
+        document.getElementById("sceneContainer").appendChild(this.renderer.domElement);
+        this.initEventListener();
+        this.animate();
+        let cubeobj = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+        cubeobj.position.x = cubeobj.position.y = 3;
+        cubeobj.callbk = ()=>{
+          mat.dispose();
+          texture.dispose();
+          this.sktboxReady = false;
+          texture = new THREE.TextureLoader().load(
+            "https://i.loli.net/2019/05/03/5ccc5d21e7a05.jpg",
+            ()=>{this.skyboxReady = true;}
+          );
+          this.block();//CALLBACK FUCK OFF
+          this.scene.remove(this.mesh);
+          mat = new THREE.MeshBasicMaterial({map:texture});
           this.mesh = new THREE.Mesh(geom,mat);
           this.scene.add(this.mesh);
-          this.scene.rotation.set(0,0,0);
-          this.renderer = new THREE.WebGLRenderer({antialias: true});
-          this.renderer.setSize(window.innerWidth,window.innerHeight);
-          document.getElementById("sceneContainer").appendChild(this.renderer.domElement);
-          this.initEventListener();
-          this.animate();
-          }
-        );//
-      //console.log(texture);
+        }
+        this.scene.add(cubeobj);
+    },
+    block(){
+      while(!this.skyboxReady);
     },
     Update(){
       let eularRadX = THREE.Math.degToRad(this.eularAngle.x);
@@ -60,6 +80,7 @@ export default {
       this.camera.target.x = 500*Math.sin(eularRadY)*Math.cos(eularRadX);
       this.camera.target.y = 500*Math.cos(eularRadY);
       this.camera.target.z = 500*Math.sin(eularRadX)*Math.sin(eularRadY);
+      //console.log(this.camera.target);
       this.camera.lookAt(this.camera.target);
       this.renderer.render(this.scene,this.camera);
     },
@@ -73,7 +94,7 @@ export default {
       window.addEventListener( 'mousemove', this.onMouseMove.bind(this));
       window.addEventListener( 'mouseup', this.onMouseUp.bind(this));
       window.addEventListener( 'touchstart', this.onTouchStart.bind(this));
-      window.addEventListener( 'touchmove', this.onTouchMove.bind(this));
+      window.addEventListener( 'touchmove', this.onTouchMove.bind(this), { passive: false });
       window.addEventListener( 'touchend', this.onTouchEnd.bind(this));
       window.addEventListener('resize',()=>{
         this.camera.aspect = window.innerWidth/window.innerHeight;
@@ -87,14 +108,21 @@ export default {
       this.mouseDown = true;
       this.pre.x = e.clientX;
       this.pre.y = e.clientY;
-      //console.log(this.eularAngle.x,this.eularAngle.y);
+      let ry = new THREE.Vector2(
+         (e.clientX / window.innerWidth)*2-1,
+        -(e.clientY / window.innerHeight)*2+1
+      )
+      this.raycaster.setFromCamera(ry,this.camera);
+      let intersections = this.raycaster.intersectObjects(this.scene.children);
+      for(let obj of intersections){
+        if(!(obj.object.callbk===undefined)) obj.object.callbk()
+      }
     },
 
     onMouseMove: function(e){
       if(this.mouseDown){
         this.eularAngle.x += (this.pre.x-e.clientX)*this.mouseSpeed;
         this.eularAngle.y += (e.clientY-this.pre.y)*this.mouseSpeed;
-        //console.log(this.eularAngle.x,this.eularAngle.y);
         this.pre.x = e.clientX;
         this.pre.y = e.clientY;
       }
@@ -109,12 +137,19 @@ export default {
       this.touchDown = true;
       this.pre.x = e.touches[0].clientX;
       this.pre.y = e.touches[0].clientY;
+      let ry = new THREE.Vector2(
+         (e.clientX / window.innerWidth)*2-1,
+        -(e.clientY / window.innerHeight)*2+1
+      )
+      this.raycaster.setFromCamera(ry,this.camera);
+      let intersections = this.raycaster.intersectObjects(this.scene.children);
     },
 
     onTouchMove: function(e){
+      event.preventDefault();
       if(this.touchDown){
         this.eularAngle.x += (this.pre.x-e.touches[0].clientX)*this.touchSpeed;
-        this.eularAngle.y += (e.touches[0].clientY-this.pre.y)*this.touchSpeed;
+        this.eularAngle.y += (this.pre.y-e.touches[0].clientY)*this.touchSpeed;
         //console.log(this.eularAngle.x,this.eularAngle.y);
         this.pre.x = e.touches[0].clientX;
         this.pre.y = e.touches[0].clientY;
@@ -132,5 +167,7 @@ export default {
   }
 }
 </script>
-
+<style>
+  body {margin: 0;}
+</style>
 <!-- Add "scoped" attribute to limit CSS to this component only -->
