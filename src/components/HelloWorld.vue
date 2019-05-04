@@ -1,15 +1,25 @@
 <template>
-  <div id="sceneContainer"></div>
-</template>
+<div>
+  <div id="sceneContainer" width="100%" height="100%">
+    {{this.eularAngle.x}}
+    {{this.eularAngle.y}}
+    <button v-if="touchMode" v-on:click = "touchMode=false"> 切换至重力感应 </button>
+    <button v-else v-on:click = "touchMode=true"> 恢复手动控制 </button>
+  </div>
+</div>
+</template> 
 
 <script>
 
 import * as THREE from 'three'
+import { Matrix4 } from 'three';
+import  orientHandler  from './scripts/orienter.js'
 
 export default {
   name: 'HelloWorld',
   data(){
     return {
+      touchMode: true,
       skyboxReady: false,
       camera: null,
       scene: null,
@@ -21,7 +31,14 @@ export default {
       mouseSpeed: 0.1,
       touchSpeed:0.1,
       pre:{x: 0, y: 0},
-      eularAngle:{x:0,y:0}
+      eularAngle:{x:0,y:0},
+      deviceOrientationData: {
+        alpha: 0,
+        beta: 0,
+        gamma: 0
+      },
+      currentScreenOrientation: 0,
+      orientH: null
     }
 
   },
@@ -36,6 +53,7 @@ export default {
       this.camera = new THREE.PerspectiveCamera(72,window.innerWidth/window.innerHeight,0.01,1000);
       this.camera.target = new THREE.Vector3(0,0,0);
       this.raycaster = new THREE.Raycaster();
+      this.orientH = new orientHandler();
       let geom = new THREE.SphereGeometry(100,100,100);
       geom.scale(1,1,-1);
       let mat;
@@ -73,21 +91,6 @@ export default {
     block(){
       while(!this.skyboxReady);
     },
-    Update(){
-      let eularRadX = THREE.Math.degToRad(this.eularAngle.x);
-      let eularRadY = THREE.Math.degToRad(90-this.eularAngle.y);
-      //console.log(eularRadX,eularRadY);
-      this.camera.target.x = 500*Math.sin(eularRadY)*Math.cos(eularRadX);
-      this.camera.target.y = 500*Math.cos(eularRadY);
-      this.camera.target.z = 500*Math.sin(eularRadX)*Math.sin(eularRadY);
-      //console.log(this.camera.target);
-      this.camera.lookAt(this.camera.target);
-      this.renderer.render(this.scene,this.camera);
-    },
-    animate: function(){
-      requestAnimationFrame(this.animate);
-      this.Update();
-    },
 
     initEventListener: function(){
       window.addEventListener( 'mousedown', this.onMouseDown.bind(this));
@@ -96,18 +99,17 @@ export default {
       window.addEventListener( 'touchstart', this.onTouchStart.bind(this));
       window.addEventListener( 'touchmove', this.onTouchMove.bind(this), { passive: false });
       window.addEventListener( 'touchend', this.onTouchEnd.bind(this));
-      window.addEventListener('resize',()=>{
+      window.addEventListener( 'resize',()=>{
         this.camera.aspect = window.innerWidth/window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth,window.innerHeight);
-      })
+      });
+      window.addEventListener( 'deviceorientation', this.onDeviceOrientation.bind(this));
+      window.addEventListener( 'orientationchange', this.onOrientationChange.bind(this));
     },
 
     onMouseDown: function(e){
       event.preventDefault();
-      this.mouseDown = true;
-      this.pre.x = e.clientX;
-      this.pre.y = e.clientY;
       let ry = new THREE.Vector2(
          (e.clientX / window.innerWidth)*2-1,
         -(e.clientY / window.innerHeight)*2+1
@@ -117,6 +119,10 @@ export default {
       for(let obj of intersections){
         if(!(obj.object.callbk===undefined)) obj.object.callbk()
       }
+      if(!this.touchMode) return;
+      this.mouseDown = true;
+      this.pre.x = e.clientX;
+      this.pre.y = e.clientY;
     },
 
     onMouseMove: function(e){
@@ -134,22 +140,26 @@ export default {
 
     onTouchStart: function(e){
       event.preventDefault();
-      this.touchDown = true;
-      this.pre.x = e.touches[0].clientX;
-      this.pre.y = e.touches[0].clientY;
       let ry = new THREE.Vector2(
-         (e.clientX / window.innerWidth)*2-1,
-        -(e.clientY / window.innerHeight)*2+1
+         (e.touches[0].clientX / window.innerWidth)*2-1,
+        -(e.touches[0].clientY / window.innerHeight)*2+1
       )
       this.raycaster.setFromCamera(ry,this.camera);
       let intersections = this.raycaster.intersectObjects(this.scene.children);
+      for(let obj of intersections){
+        if(!(obj.object.callbk===undefined)) obj.object.callbk()
+      }
+      if(!this.touchMode) return;
+      this.touchDown = true;
+      this.pre.x = e.touches[0].clientX;
+      this.pre.y = e.touches[0].clientY;
     },
 
     onTouchMove: function(e){
       event.preventDefault();
       if(this.touchDown){
         this.eularAngle.x += (this.pre.x-e.touches[0].clientX)*this.touchSpeed;
-        this.eularAngle.y += (this.pre.y-e.touches[0].clientY)*this.touchSpeed;
+        this.eularAngle.y -= (this.pre.y-e.touches[0].clientY)*this.touchSpeed;
         //console.log(this.eularAngle.x,this.eularAngle.y);
         this.pre.x = e.touches[0].clientX;
         this.pre.y = e.touches[0].clientY;
@@ -158,7 +168,38 @@ export default {
 
     onTouchEnd: function(e){
       this.touchDown = false;
-    }
+    },
+
+    onDeviceOrientation: function(e){
+      this.deviceOrientationData = e;
+      if(this.touchMode) return;
+      let ret = this.orientH.handleOrient(this.currentScreenOrientation,e);
+      this.eularAngle.y = ret.lat;
+      this.eularAngle.x = ret.lon;
+    },
+
+    onOrientationChange: function(e){
+      this.currentScreenOrientation = window.orientation;
+    },
+
+    Update(){
+      if(this.eularAngle.y>85) {this.eularAngle.y = 85;}
+      else if(this.eularAngle.y<-85){this.eularAngle.y = -85;}
+      if(this.eularAngle.x>=360){this.eularAngle.x %= 360;}
+      else if(this.eularAngle.x<0){this.eularAngle.x = (this.eularAngle.x%360)+360;}
+      let eularRadX = THREE.Math.degToRad(this.eularAngle.x);
+      let eularRadY = THREE.Math.degToRad(90-this.eularAngle.y);
+      this.camera.target.x = 500*Math.sin(eularRadY)*Math.cos(eularRadX);
+      this.camera.target.y = 500*Math.cos(eularRadY);
+      this.camera.target.z = 500*Math.sin(eularRadX)*Math.sin(eularRadY);
+      this.camera.lookAt(this.camera.target);
+      this.renderer.render(this.scene,this.camera);
+    },
+
+    animate: function(){
+      requestAnimationFrame(this.animate);
+      this.Update();
+    },
 
   },
   mounted(){
