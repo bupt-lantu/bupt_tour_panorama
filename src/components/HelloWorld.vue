@@ -1,6 +1,7 @@
 <template>
 <div>
   <div id="sceneContainer" width="100%" height="100%">
+    <button v-on:click="setBG()">应用更改</button>
     {{this.eularAngle.x}}
     {{this.eularAngle.y}}
     <button v-if="touchMode" v-on:click = "touchMode=false"> 切换至重力感应 </button>
@@ -10,15 +11,18 @@
 </template> 
 
 <script>
-
 import * as THREE from 'three'
 import { Matrix4 } from 'three';
 import  orientHandler  from './scripts/orienter.js'
-
 export default {
   name: 'HelloWorld',
   data(){
     return {
+      img1: "https://i.loli.net/2019/05/20/5ce24006dcc9389408.jpg",
+      img2: "https://i.loli.net/2019/05/20/5ce24006dcf7e51423.jpg",
+      mat: {},
+      texture: {},
+      geom: {},
       touchMode: true,
       skyboxReady: false,
       camera: null,
@@ -54,15 +58,16 @@ export default {
       this.camera.target = new THREE.Vector3(0,0,0);
       this.raycaster = new THREE.Raycaster();
       this.orientH = new orientHandler();
-      let geom = new THREE.SphereGeometry(100,100,100);
-      geom.scale(1,1,-1);
-      let mat;
-      let texture = new THREE.TextureLoader().load(
-        "https://i.loli.net/2019/04/29/5cc6f0512a9cd.jpg",
-        ()=>{this.skyboxReady = true;}
+      this.geom = new THREE.SphereGeometry(100,100,100);
+      this.geom.scale(1,1,-1);
+      this.texture = new THREE.TextureLoader().load(
+        //"https://i.loli.net/2019/04/29/5cc6f0512a9cd.jpg",
+        //"https://i.loli.net/2019/05/19/5ce11f893fe1125722.jpg",
+        //"https://i.loli.net/2019/05/19/5ce121f482da993578.jpg",
+        this.img1
         );//
-        mat = new THREE.MeshBasicMaterial({map: texture});
-        this.mesh = new THREE.Mesh(geom,mat);
+        this.mat = new THREE.MeshBasicMaterial({map: this.texture});
+        this.mesh = new THREE.Mesh(this.geom,this.mat);
         this.scene.add(this.mesh);
         this.scene.rotation.set(0,0,0);
         this.renderer = new THREE.WebGLRenderer({antialias: true});
@@ -73,18 +78,7 @@ export default {
         let cubeobj = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
         cubeobj.position.x = cubeobj.position.y = 3;
         cubeobj.callbk = ()=>{
-          mat.dispose();
-          texture.dispose();
-          this.sktboxReady = false;
-          texture = new THREE.TextureLoader().load(
-            "https://i.loli.net/2019/05/03/5ccc5d21e7a05.jpg",
-            ()=>{this.skyboxReady = true;}
-          );
-          this.block();//CALLBACK FUCK OFF
-          this.scene.remove(this.mesh);
-          mat = new THREE.MeshBasicMaterial({map:texture});
-          this.mesh = new THREE.Mesh(geom,mat);
-          this.scene.add(this.mesh);
+          this.setBGImg(this.img2);
         }
         this.scene.add(cubeobj);
     },
@@ -181,7 +175,25 @@ export default {
     onOrientationChange: function(e){
       this.currentScreenOrientation = window.orientation;
     },
-
+    setBGImg: function(src){
+      console.log(src);
+      this.mat.dispose();
+      this.texture.dispose();
+      this.sktboxReady = false;
+      this.texture = new THREE.TextureLoader().load(
+        //"https://i.loli.net/2019/05/03/5ccc5d21e7a05.jpg",
+        src,
+        ()=>{this.skyboxReady = true;}
+      );
+      //this.block();//CALLBACK FUCK OFF
+      this.scene.remove(this.mesh);
+      this.mat = new THREE.MeshBasicMaterial({map:this.texture});
+      this.mesh = new THREE.Mesh(this.geom,this.mat);
+      this.scene.add(this.mesh);
+    },
+    setBG: function(e){
+      this.setBGImg(this.img1);
+    },
     Update(){
       if(this.eularAngle.y>85) {this.eularAngle.y = 85;}
       else if(this.eularAngle.y<-85){this.eularAngle.y = -85;}
