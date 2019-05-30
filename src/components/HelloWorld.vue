@@ -1,11 +1,11 @@
 <template>
 <div>
   <div id="sceneContainer" width="100%" height="100%">
-    <button v-on:click="setBG()">应用更改</button>
     {{this.eularAngle.x}}
     {{this.eularAngle.y}}
     <button v-if="touchMode" v-on:click = "touchMode=false"> 切换至重力感应 </button>
     <button v-else v-on:click = "touchMode=true"> 恢复手动控制 </button>
+    <audio id="desc"/>
   </div>
 </div>
 </template> 
@@ -191,15 +191,19 @@ export default {
       this.mesh = new THREE.Mesh(this.geom,this.mat);
       this.scene.add(this.mesh);
       let sphereobj = new THREE.Mesh(new THREE.SphereGeometry(0.5,10,10),new THREE.MeshBasicMaterial({color: 0xffffff}));
-      sphereobj.position.x = 10 ,sphereobj.position.y = 2.5; sphereobj.position.z = -10
-      sphereobj.callbk = ()=>{
+      sphereobj.position.x = 10 ,sphereobj.position.y = 2.5; sphereobj.position.z = -10;
+      let sphereobj2 = new THREE.Mesh(new THREE.SphereGeometry(4,10,10),new THREE.MeshBasicMaterial({color: 0xffffff,opacity:0,transparent:true}));
+      sphereobj2.position.x = 10 ,sphereobj2.position.y = 2.5; sphereobj2.position.z = -10;
+      sphereobj2.callbk = ()=>{
         console.log("SD");
-        let audio = new Audio();
+        let audio = document.getElementById('desc');
         audio.src = 'https://langdu.cdn.bjadks.com/DataFile/Upload/User/Audio/20190528143945_45556.mp3';
-        audio.autoplay = true;
-        document.body.appendChild(audio);
+        audio.play();
+        //audio.autoplay = true;
+        //document.body.appendChild(audio);
       };
       this.scene.add(sphereobj);
+      this.scene.add(sphereobj2);
     },
     setBG: function(e){
       this.setBGImg(this.img1);
