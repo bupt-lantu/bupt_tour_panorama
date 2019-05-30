@@ -1,6 +1,7 @@
 <template>
 <div>
   <div id="sceneContainer" width="100%" height="100%">
+    <button v-on:click="setBG()">应用更改</button>
     {{this.eularAngle.x}}
     {{this.eularAngle.y}}
     <button v-if="touchMode" v-on:click = "touchMode=false"> 切换至重力感应 </button>
@@ -11,19 +12,19 @@
 
 <script>
 import * as THREE from 'three'
-import { Matrix4, MeshBasicMaterial } from 'three';
+import { Matrix4 } from 'three';
 import  orientHandler  from './scripts/orienter.js'
-import sceneObj from './scripts/scene.js'
 export default {
   name: 'HelloWorld',
   data(){
     return {
-      
       img1: "https://i.loli.net/2019/05/20/5ce24006dcc9389408.jpg",
       img2: "https://i.loli.net/2019/05/20/5ce24006dcf7e51423.jpg",
-      sceneObjs: [],
-      curSceneId: -1,
+      mat: {},
+      texture: {},
+      geom: {},
       touchMode: true,
+      skyboxReady: false,
       camera: null,
       scene: null,
       renderer: null,
@@ -57,39 +58,32 @@ export default {
       this.camera.target = new THREE.Vector3(0,0,0);
       this.raycaster = new THREE.Raycaster();
       this.orientH = new orientHandler();
-      this.initScenes();
-      this.scene.rotation.set(0,0,0);
-      this.renderer = new THREE.WebGLRenderer({antialias: true});
-      this.renderer.setSize(window.innerWidth,window.innerHeight);
-      document.getElementById("sceneContainer").appendChild(this.renderer.domElement);
-      this.initEventListener();
-      this.animate();
-        /*
+      this.geom = new THREE.SphereGeometry(100,100,100);
+      this.geom.scale(1,1,-1);
+      this.texture = new THREE.TextureLoader().load(
+        //"https://i.loli.net/2019/04/29/5cc6f0512a9cd.jpg",
+        //"https://i.loli.net/2019/05/19/5ce11f893fe1125722.jpg",
+        //"https://i.loli.net/2019/05/19/5ce121f482da993578.jpg",
+        this.img1
+        );//
+        this.mat = new THREE.MeshBasicMaterial({map: this.texture});
+        this.mesh = new THREE.Mesh(this.geom,this.mat);
+        this.scene.add(this.mesh);
+        this.scene.rotation.set(0,0,0);
+        this.renderer = new THREE.WebGLRenderer({antialias: true});
+        this.renderer.setSize(window.innerWidth,window.innerHeight);
+        document.getElementById("sceneContainer").appendChild(this.renderer.domElement);
+        this.initEventListener();
+        this.animate();
         let cubeobj = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
         cubeobj.position.x = cubeobj.position.y = 3;
         cubeobj.callbk = ()=>{
           this.setBGImg(this.img2);
         }
         this.scene.add(cubeobj);
-        */
     },
-    
-    initScenes: function(){
-      let scene0 = new sceneObj(0,this.img1,this.scene);
-      let cubeobj0 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
-      cubeobj0.position.x = cubeobj0.position.y = 3;
-      scene0.addJumpObj(cubeobj0,1);
-      this.sceneObjs.push(scene0);
-      scene0.load();
-      this.curSceneId = 0;
-      let scene1 = new sceneObj(1,this.img2,this.scene);
-      let cubeobj1 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({color: 0x000000}));
-      cubeobj1.position.x = cubeobj1.position.y = 2;
-      let sphereobj = new THREE.Mesh(new THREE.SphereGeometry(0.5,10,10),new THREE.MeshBasicMaterial({color: 0xffffff}));
-      sphereobj.position.x = 10 ,sphereobj.position.y = 2.5; sphereobj.position.z = -10
-      scene1.addJumpObj(cubeobj1,0);
-      scene1.addDescObj(sphereobj,'https://langdu.cdn.bjadks.com/DataFile/Upload/User/Audio/20190528143945_45556.mp3');
-      this.sceneObjs.push(scene1);
+    block(){
+      while(!this.skyboxReady);
     },
 
     initEventListener: function(){
@@ -106,7 +100,6 @@ export default {
       });
       window.addEventListener( 'deviceorientation', this.onDeviceOrientation.bind(this));
       window.addEventListener( 'orientationchange', this.onOrientationChange.bind(this));
-      window.addEventListener('jumpTo',this.changeScene.bind(this));
     },
 
     onMouseDown: function(e){
@@ -182,13 +175,35 @@ export default {
     onOrientationChange: function(e){
       this.currentScreenOrientation = window.orientation;
     },
-
-    changeScene: function(e){
-      this.sceneObjs[this.curSceneId].unload();
-      this.curSceneId = e.detail.dest;
-      this.sceneObjs[this.curSceneId].load();
+    setBGImg: function(src){
+      console.log(src);
+      this.mat.dispose();
+      this.texture.dispose();
+      this.sktboxReady = false;
+      this.texture = new THREE.TextureLoader().load(
+        //"https://i.loli.net/2019/05/03/5ccc5d21e7a05.jpg",
+        src,
+        ()=>{this.skyboxReady = true;}
+      );
+      //this.block();//CALLBACK FUCK OFF
+      this.scene.remove(this.mesh);
+      this.mat = new THREE.MeshBasicMaterial({map:this.texture});
+      this.mesh = new THREE.Mesh(this.geom,this.mat);
+      this.scene.add(this.mesh);
+      let sphereobj = new THREE.Mesh(new THREE.SphereGeometry(0.5,10,10),new THREE.MeshBasicMaterial({color: 0xffffff}));
+      sphereobj.position.x = 10 ,sphereobj.position.y = 2.5; sphereobj.position.z = -10
+      sphereobj.callbk = ()=>{
+        console.log("SD");
+        let audio = new Audio();
+        audio.src = 'https://langdu.cdn.bjadks.com/DataFile/Upload/User/Audio/20190528143945_45556.mp3';
+        audio.autoplay = true;
+        document.body.appendChild(audio);
+      };
+      this.scene.add(sphereobj);
     },
-
+    setBG: function(e){
+      this.setBGImg(this.img1);
+    },
     Update(){
       if(this.eularAngle.y>85) {this.eularAngle.y = 85;}
       else if(this.eularAngle.y<-85){this.eularAngle.y = -85;}

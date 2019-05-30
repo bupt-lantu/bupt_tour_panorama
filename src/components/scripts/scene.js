@@ -8,6 +8,7 @@ export default class sceneObj{
         this.jumpObj = [];
         this.descObj = [];
         this.setBgSrc(src);
+        this.texture = {};
     }
     addJumpObj(obj, dest){
         obj.callbk = ()=>{
@@ -35,18 +36,21 @@ export default class sceneObj{
     }
     setBgSrc(src){
         this.bgSrc = src;
-        this.setBgMesh();
+        //this.setBgMesh();
     }
-    setBgMesh(){
+    setBgMesh(callbk){
         let geom = new THREE.SphereGeometry(100,100,100);
         geom.scale(1,1,-1);
-        let texture = new THREE.TextureLoader().load(this.bgSrc);
-        let mat = new THREE.MeshBasicMaterial({map:texture});
-        this.bgMesh = new THREE.Mesh(geom,mat);
+        this.texture = new THREE.TextureLoader().load(this.bgSrc,()=>{
+            let mat = new THREE.MeshBasicMaterial({map:this.texture});
+            this.bgMesh = new THREE.Mesh(geom,mat);
+            callbk();
+        });
     }
     load(){
         this.active = true;
-        this.scene.add(this.bgMesh);
+        this.setBgMesh(()=>{this.scene.add(this.bgMesh)});
+        //this.scene.add(this.bgMesh);
         for(let obj of this.jumpObj){
             this.scene.add(obj);
         }
@@ -56,6 +60,7 @@ export default class sceneObj{
     }
     unload(){
         this.scene.remove(this.bgMesh);
+        this.texture.dispose();
         for(let obj of this.jumpObj){
             this.scene.remove(obj);
         }
