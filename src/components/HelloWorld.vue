@@ -169,7 +169,7 @@ export default {
       if(this.touchMode) return;
       let ret = this.orientH.handleOrient(this.currentScreenOrientation,e);
       this.eularAngle.y = ret.lat;
-      this.eularAngle.x = ret.lon;
+      this.eularAngle.x = -ret.lon;
     },
 
     onOrientationChange: function(e){
