@@ -1,7 +1,6 @@
 <template>
 <div>
   <div id="sceneContainer" width="100%" height="100%">
-    <button v-on:click="setBG()">应用更改</button>
     {{this.eularAngle.x}}
     {{this.eularAngle.y}}
     <button v-if="touchMode" v-on:click = "touchMode=false"> 切换至重力感应 </button>
@@ -86,7 +85,10 @@ export default {
       let scene1 = new sceneObj(1,this.img2,this.scene);
       let cubeobj1 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({color: 0x000000}));
       cubeobj1.position.x = cubeobj1.position.y = 2;
+      let sphereobj = new THREE.Mesh(new THREE.SphereGeometry(0.5,10,10),new THREE.MeshBasicMaterial({color: 0xffffff}));
+      sphereobj.position.x = 10 ,sphereobj.position.y = 2.5; sphereobj.position.z = -10
       scene1.addJumpObj(cubeobj1,0);
+      scene1.addDescObj(sphereobj,'https://langdu.cdn.bjadks.com/DataFile/Upload/User/Audio/20190528143945_45556.mp3');
       this.sceneObjs.push(scene1);
     },
 
@@ -182,7 +184,7 @@ export default {
     },
 
     changeScene: function(e){
-      this.sceneObjs[this.curSceneId].dispose();
+      this.sceneObjs[this.curSceneId].unload();
       this.curSceneId = e.detail.dest;
       this.sceneObjs[this.curSceneId].load();
     },

@@ -6,6 +6,7 @@ export default class sceneObj{
         this.active = false;
         this.scene = scene;
         this.jumpObj = [];
+        this.descObj = [];
         this.setBgSrc(src);
     }
     addJumpObj(obj, dest){
@@ -18,8 +19,19 @@ export default class sceneObj{
                 }
             )
             dispatchEvent(e);
-        }
+        };
         this.jumpObj.push(obj);
+    }
+    addDescObj(obj, src){
+        obj.callbk = ()=>{
+            console.log("this is a description");
+            console.log(src);
+            let audio = new Audio();
+            audio.src = src;
+            audio.autoplay = true;
+            document.body.appendChild(audio);
+        };
+        this.descObj.push(obj);
     }
     setBgSrc(src){
         this.bgSrc = src;
@@ -38,10 +50,16 @@ export default class sceneObj{
         for(let obj of this.jumpObj){
             this.scene.add(obj);
         }
+        for(let obj of this.descObj){
+            this.scene.add(obj);
+        }
     }
-    dispose(){
+    unload(){
         this.scene.remove(this.bgMesh);
         for(let obj of this.jumpObj){
+            this.scene.remove(obj);
+        }
+        for(let obj of this.descObj){
             this.scene.remove(obj);
         }
         this.active = false;
