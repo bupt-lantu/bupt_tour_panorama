@@ -2,7 +2,7 @@
   <div>
     <div id="sceneContainer" width="100%" height="100%">
       <button id="modebutton" v-if="touchMode" v-on:click="touchMode=false">切换至重力感应</button>
-      <button v-else v-on:click="touchMode=true">恢复手动控制</button>
+      <button id="modebutton2" v-else v-on:click="touchMode=true">恢复手动控制</button>
       <audio id="desc" />
     </div>
   </div>
@@ -351,6 +351,28 @@ export default {
 <style>
 body {
   margin: 0;
+}
+#modebutton {
+  position: absolute;
+  top: 90%;
+  left: 60%;
+  height: 20px;
+  border: none;
+  border-radius: 10px;
+  background-color: #616161;
+  opacity: 0.7;
+  color: #000000;
+}
+#modebutton2 {
+  position: absolute;
+  top: 90%;
+  left: 60%;
+  height: 20px;
+  border: none;
+  border-radius: 10px;
+  background-color: #616161;
+  opacity: 0.7;
+  color: #000000;
 }
 </style>
 <!-- Add "scoped" attribute to limit CSS to this component only -->
