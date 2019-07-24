@@ -66,18 +66,60 @@ export default {
       //  "https://langdu.cdn.bjadks.com/DataFile/Upload/User/Audio/20190528143945_45556.mp3";
       let pi = Math.PI;
       let scene1 = new sceneObj("图书馆和教学楼间", img1, img1p);
-      scene1.addJumpObj(this.getJumpButton(pi / 2, 10, 1), "靠近图书馆");
-      scene1.addJumpObj(this.getJumpButton(-pi / 2, 10, 1), "教室地下");
+      scene1.unstringify(
+        '{"name":"图书馆和教学楼间","bgSrc":"https://i.loli.net/2019/07/07/5d21fc2e85ed526354.jpg","bgPreSrc":"https://i.loli.net/2019/07/07/5d22104ea845884854.jpg","jumpobj":[{"dest":"靠近图书馆","position":{"theta":1.5707963267948966,"row":10,"h":1}},{"dest":"教室地下","position":{"theta":-1.5707963267948966,"row":10,"h":1}}],"descobj":[]}',
+        this.getJumpButton.bind(this)
+      );
+      /*
+      scene1.addJumpObj(this.getJumpButton(), "靠近图书馆", {
+        theta: pi / 2,
+        row: 10,
+        h: 1
+      });
+      scene1.addJumpObj(this.getJumpButton(), "教室地下", {
+        theta: -pi / 2,
+        row: 10,
+        h: 1
+      });
+      scene1.stringify();*/
       let scene2 = new sceneObj("靠近图书馆", img2, img2p);
-      scene2.addJumpObj(this.getJumpButton(-pi / 2, 10, 1), "图书馆和教学楼间");
-      scene2.addJumpObj(this.getJumpButton(pi / 2, 10, 1), "食堂连廊");
+      scene2.addJumpObj(this.getJumpButton(), "图书馆和教学楼间", {
+        theta: -pi / 2,
+        row: 10,
+        h: 1
+      });
+      scene2.addJumpObj(this.getJumpButton(), "食堂连廊", {
+        theta: pi / 2,
+        row: 10,
+        h: 1
+      });
+      scene2.stringify();
       let scene3 = new sceneObj("教室地下", img3, img3p);
-      scene3.addJumpObj(this.getJumpButton(-pi / 2, 10, 1), "图书馆和教学楼间");
+      scene3.addJumpObj(this.getJumpButton(), "图书馆和教学楼间", {
+        theta: -pi / 2,
+        row: 10,
+        h: 1
+      });
+      scene3.stringify();
       let scene4 = new sceneObj("食堂连廊", img4, img4p);
-      scene4.addJumpObj(this.getJumpButton(0, 10, 1), "靠近图书馆");
-      scene4.addJumpObj(this.getJumpButton(pi, 10, 1), "食堂路口");
+      scene4.addJumpObj(this.getJumpButton(), "靠近图书馆", {
+        theta: 0,
+        row: 10,
+        h: 1
+      });
+      scene4.addJumpObj(this.getJumpButton(), "食堂路口", {
+        theta: pi,
+        row: 10,
+        h: 1
+      });
+      scene4.stringify();
       let scene5 = new sceneObj("食堂路口", img5, img5p);
-      scene5.addJumpObj(this.getJumpButton((6 * pi) / 5, 10, 1), "食堂连廊");
+      scene5.addJumpObj(this.getJumpButton(), "食堂连廊", {
+        theta: (6 * pi) / 5,
+        row: 10,
+        h: 1
+      });
+      scene5.stringify();
       this.currentScene = scene2;
       this.sceneMap = new Map();
       this.sceneMap[scene1.name] = scene1;
@@ -221,7 +263,7 @@ export default {
       this.currentScene = this.sceneMap[e.detail.dest];
       this.loadScene(this.currentScene);
     },
-    getJumpButton: function(theta, row, h) {
+    getJumpButton: function() {
       let arr = "https://i.loli.net/2019/07/07/5d20d7e3486ca89261.png"; //"https://i.loli.net/2019/07/02/5d1b51a6c0c4a70528.png";
       let tex = new THREE.TextureLoader().load(arr);
       tex.magFilter = THREE.NearestFilter;
@@ -233,11 +275,6 @@ export default {
           side: THREE.DoubleSide
         })
       );
-      planeObj.position.x = row * Math.cos(theta);
-      planeObj.position.y = h;
-      planeObj.position.z = row * Math.sin(theta);
-      planeObj.rotation.y = Math.PI / 2;
-      planeObj.rotation.y = Math.PI / 2 - theta;
       return planeObj;
     },
     loadScene: function(sc) {
