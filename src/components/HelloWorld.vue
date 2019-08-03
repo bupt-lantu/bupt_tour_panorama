@@ -1,8 +1,66 @@
 <template>
   <div>
+    <div v-if="editorAddIcon" class="editorPanel">
+      <!-- ADD ICON-->
+      <button v-on:click="edAddIcon()">确认</button>
+      <button v-on:click="edIconContent=''; editorAddIcon=false">取消</button>
+      <br />
+      <select v-model="edIconMode">
+        <option disabled value>选择图标类型</option>
+        <option>jump</option>
+        <option>audio</option>
+        <option>text</option>
+      </select>
+      <br />
+      <select v-if="edIconMode=='jump'" v-model="edIconContent">
+        <option disabled value>选择场景</option>
+        <option v-for="item in getSceneNames()" :key="item">{{item}}</option>
+      </select>
+      <input
+        v-if="edIconMode=='audio'||edIconMode=='text'"
+        v-model="edIconContent"
+        placeholder="请输入音频链接/文字介绍"
+      />
+      <div>
+        位置
+        <br />
+        X{{editCenter.position.x}}
+        <br />
+        Y{{editCenter.position.y}}
+        <br />
+        Z{{editCenter.position.z}}
+      </div>
+    </div>
+    <!-- ADD SCENE-->
+    <div v-if="editorAddScene" class="editorPanel">
+      <button v-on:click="edAddScene()">确认</button>
+      <button v-on:click="edSceneName=''; editorAddScene=false">取消</button>
+      <br />
+      <input v-model="edSceneName" placeholder="请输入场景名称" />
+      <input type="file" id="upload" />
+    </div>
+    <!--Delete Scene-->
+    <div v-if="editorDelScene" class="editorPanel">
+      <button v-on:click="edDelScene()">确认</button>
+      <button v-on:click="edSceneName=''; editorDelScene=false">取消</button>
+      <br />
+      <select v-model="edSceneName">
+        <option disabled value>选择场景</option>
+        <option v-for="item in getSceneNames()" :key="item">{{item}}</option>
+      </select>
+    </div>
+    <!--Scene-->
     <div id="sceneContainer" width="100%" height="100%">
       <button id="modebutton" v-if="touchMode" v-on:click="touchMode=false">切换至重力感应</button>
       <button id="modebutton2" v-else v-on:click="touchMode=true">恢复手动控制</button>
+      <button class="edit" v-if="!editMode" v-on:click="editModeOn()">开启编辑模式</button>
+      <button class="edit" v-else v-on:click="editModeOff()">关闭编辑模式</button>
+      <div id="editbar" v-if="editMode">
+        <button v-on:click="editorAddIcon=true">添加图标</button>
+        <button v-on:click="edDelIcon()">删除图标</button>
+        <button v-on:click="editorAddScene=true">添加场景</button>
+        <button v-on:click="editorDelScene=true">删除场景</button>
+      </div>
       <audio id="desc" />
     </div>
   </div>
@@ -14,16 +72,24 @@ import { Matrix4, PlaneGeometry } from "three";
 import orientHandler from "./scripts/orienter.js";
 import sceneObj from "./scripts/scene";
 import { log } from "util";
+import { Promise, reject } from "q";
 export default {
   name: "HelloWorld",
   data() {
     return {
+      editMode: false,
+      editCenter: {},
+      editorAddIcon: false,
+      editorAddScene: false,
+      editorDelScene: false,
+      edSceneName: "",
+      edIconContent: "",
+      edIconMode: "",
       sceneMap: {},
       currentScene: "",
+      skyBoxPartialOK: [false, false, false, false],
       skyBoxMat: {},
-      preSkyBoxMat: null,
       skyBoxTexture: {},
-      preSkyBoxTexture: null,
       skyBoxGeom: {},
       touchMode: true,
       skyboxReady: false,
@@ -51,82 +117,155 @@ export default {
     msg: String
   },
   methods: {
+    editModeOn: function() {
+      this.editMode = true;
+      this.scene.add(this.editCenter);
+    },
+    editModeOff: function() {
+      this.editMode = false;
+      this.scene.remove(this.editCenter);
+    },
+    getSceneNames: function() {
+      let ret = [];
+      for (let name of this.sceneMap.keys()) {
+        if (name == this.currentScene.name) continue;
+        ret.push(name);
+      }
+      return ret;
+    },
+    edAddIcon: function() {
+      if (this.edIconMode == "jump") {
+        let obj = this.currentScene.addJumpObj(
+          this.getJumpButton(),
+          this.edIconContent,
+          {
+            theta: THREE.Math.degToRad(this.eularAngle.x),
+            row: 10,
+            h: this.editCenter.position.y
+          }
+        );
+        this.scene.add(obj);
+        this.editorAddIcon = false;
+      } else {
+      }
+      this.currentScene;
+    },
+    edDelIcon: function() {
+      event.preventDefault();
+      let ry = new THREE.Vector2(0, 0);
+      this.raycaster.setFromCamera(ry, this.camera);
+      let intersections = this.raycaster.intersectObjects(this.scene.children);
+      for (let obj of intersections) {
+        if (!(obj.object.callbk === undefined))
+          obj.object.callbk(this.scene, true);
+      }
+    },
+    edAddScene: async function() {
+      this.editorAddScene = false;
+      let file = document.getElementById("upload").files[0];
+      if (!file || this.edSceneName.length == 0) return;
+      let img = await new Promise((resolve, reject) => {
+        let reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = e => {
+          resolve(e.target.result);
+        };
+      });
+      let compressedimg = await this.compressMap(img);
+      let cutimg = await this.cutMap(img);
+      let formdata = new FormData();
+      formdata.append("file", compressedimg);
+      let mini = await new Promise((resolve, reject) => {
+        this.$axios
+          .post("http://localhost:3000/api/upload", formdata)
+          .then(res => {
+            resolve(res);
+          });
+      });
+      //console.log(mini);
+      let partial = [];
+      for (let cimg of cutimg) {
+        formdata = new FormData();
+        formdata.append("file", cimg);
+        let pt = await new Promise((resolve, reject) => {
+          this.$axios
+            .post("http://localhost:3000/api/upload", formdata)
+            .then(res => {
+              resolve(res);
+            });
+        });
+        partial.push(pt.data.url);
+        //console.log(pt);
+      }
+      let sc = new sceneObj(this.edSceneName, mini.data.url, partial);
+      this.sceneMap.set(sc.name, sc);
+    },
+    edDelScene: function() {
+      this.sceneMap.delete(this.edSceneName);
+      this.edSceneName = "";
+      //console.log(this.edSceneName, this.sceneMap);
+      this.editorDelScene = false;
+    },
+    compressMap: function(src) {
+      return new Promise((resolve, reject) => {
+        let img = new Image();
+        img.src = src;
+        img.onload = () => {
+          let canvast = document.createElement("canvas");
+          let ctx = canvast.getContext("2d");
+          //(img.width = 4096), (img.height = 2048);
+          (canvast.width = 4096), (canvast.height = 2048);
+          ctx.drawImage(img, 0, 0, 4096, 2048);
+          let retblob = this.dataURLtoBlob(
+            canvast.toDataURL("image/jpeg", 0.2)
+          );
+          let ret = new File([retblob], "test.jpg");
+          resolve(ret);
+        };
+      });
+    },
+    cutMap: function(src) {
+      return new Promise((resolve, reject) => {
+        let img = new Image();
+        img.src = src;
+        img.onload = () => {
+          let canvast = document.createElement("canvas");
+          let ctx = canvast.getContext("2d");
+          //(img.width = 4096), (img.height = 2048);
+          (canvast.width = 1024), (canvast.height = 2048);
+          let ret = [];
+          for (let i = 0; i < 4; i++) {
+            ctx.drawImage(img, -i * 1024, 0, 4096, 2048);
+            let retblob = this.dataURLtoBlob(
+              canvast.toDataURL("image/jpeg", 0.95)
+            );
+            ret.push(new File([retblob], "test.jpg"));
+          }
+          resolve(ret);
+        };
+      });
+    },
+    dataURLtoBlob: function(dataurl) {
+      var arr = dataurl.split(","),
+        mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]),
+        n = bstr.length,
+        u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new Blob([u8arr], { type: mime });
+    },
     sceneObjInit: function() {
-      let img1 = "https://i.loli.net/2019/07/07/5d21fc2e85ed526354.jpg"; //图书馆和教学楼间//"https://i.loli.net/2019/05/20/5ce24006dcc9389408.jpg";
-      let img2 = "https://i.loli.net/2019/07/07/5d21fc2e85f6c39262.jpg"; //靠近图书馆"https://i.loli.net/2019/05/20/5ce24006dcf7e51423.jpg";
-      let img3 = "https://i.loli.net/2019/07/07/5d21fc2e85e0554551.jpg"; //教室地下
-      let img4 = "https://i.loli.net/2019/07/07/5d21fc2e85f8953320.jpg"; //食堂连廊
-      let img5 = "https://i.loli.net/2019/07/07/5d21fc2e85c4d50768.jpg"; //食堂路口
-      let img1p = "https://i.loli.net/2019/07/07/5d22104ea845884854.jpg"; //图书馆和教学楼间
-      let img2p = "https://i.loli.net/2019/07/07/5d22104ec7b3415917.jpg"; //靠近图书馆 "https://i.loli.net/2019/07/07/5d21fef1c332f75397.jpg"; //
-      let img3p = "https://i.loli.net/2019/07/07/5d22104ebdcf286019.jpg"; //教室地下
-      let img4p = "https://i.loli.net/2019/07/07/5d22104eb37e563108.jpg"; //食堂连廊
-      let img5p = "https://i.loli.net/2019/07/07/5d22104e964f185346.jpg"; //食堂路口
-      //let aud =
-      //  "https://langdu.cdn.bjadks.com/DataFile/Upload/User/Audio/20190528143945_45556.mp3";
-      let pi = Math.PI;
-      let scene1 = new sceneObj("图书馆和教学楼间", img1, img1p);
-      scene1.unstringify(
-        '{"name":"图书馆和教学楼间","bgSrc":"https://i.loli.net/2019/07/07/5d21fc2e85ed526354.jpg","bgPreSrc":"https://i.loli.net/2019/07/07/5d22104ea845884854.jpg","jumpobj":[{"dest":"靠近图书馆","position":{"theta":1.5707963267948966,"row":10,"h":1}},{"dest":"教室地下","position":{"theta":-1.5707963267948966,"row":10,"h":1}}],"descobj":[]}',
-        this.getJumpButton.bind(this)
-      );
-      /*
-      scene1.addJumpObj(this.getJumpButton(), "靠近图书馆", {
-        theta: pi / 2,
-        row: 10,
-        h: 1
-      });
-      scene1.addJumpObj(this.getJumpButton(), "教室地下", {
-        theta: -pi / 2,
-        row: 10,
-        h: 1
-      });
-      scene1.stringify();*/
-      let scene2 = new sceneObj("靠近图书馆", img2, img2p);
-      scene2.addJumpObj(this.getJumpButton(), "图书馆和教学楼间", {
-        theta: -pi / 2,
-        row: 10,
-        h: 1
-      });
-      scene2.addJumpObj(this.getJumpButton(), "食堂连廊", {
-        theta: pi / 2,
-        row: 10,
-        h: 1
-      });
-      scene2.stringify();
-      let scene3 = new sceneObj("教室地下", img3, img3p);
-      scene3.addJumpObj(this.getJumpButton(), "图书馆和教学楼间", {
-        theta: -pi / 2,
-        row: 10,
-        h: 1
-      });
-      scene3.stringify();
-      let scene4 = new sceneObj("食堂连廊", img4, img4p);
-      scene4.addJumpObj(this.getJumpButton(), "靠近图书馆", {
-        theta: 0,
-        row: 10,
-        h: 1
-      });
-      scene4.addJumpObj(this.getJumpButton(), "食堂路口", {
-        theta: pi,
-        row: 10,
-        h: 1
-      });
-      scene4.stringify();
-      let scene5 = new sceneObj("食堂路口", img5, img5p);
-      scene5.addJumpObj(this.getJumpButton(), "食堂连廊", {
-        theta: (6 * pi) / 5,
-        row: 10,
-        h: 1
-      });
-      scene5.stringify();
-      this.currentScene = scene2;
+      let img0 = "http://localhost:3000/97de0ac023ea3f62ea1a0c6467e5bc6b.png";
+      let img00 = "http://localhost:3000/900aabf7c3d7a339848019734187001a.png";
+      let img01 = "http://localhost:3000/16e1531871201e40617bdc1420872bd8.png";
+      let img02 = "http://localhost:3000/2ea4e4769f475d265bac7be1383feb05.png";
+      let img03 = "http://localhost:3000/6f8b841c636b924d652bbde9881c5e19.png";
+      let scene0 = new sceneObj("校门口", img0, [img00, img01, img02, img03]);
+      this.currentScene = scene0;
       this.sceneMap = new Map();
-      this.sceneMap[scene1.name] = scene1;
-      this.sceneMap[scene2.name] = scene2;
-      this.sceneMap[scene3.name] = scene3;
-      this.sceneMap[scene4.name] = scene4;
-      this.sceneMap[scene5.name] = scene5;
+      this.sceneMap.set(scene0.name, scene0);
     },
     rendererInit: function() {
       this.scene = new THREE.Scene();
@@ -153,6 +292,11 @@ export default {
       document
         .getElementById("sceneContainer")
         .appendChild(this.renderer.domElement);
+      this.editCenter = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      this.editCenter.position.x = 10;
     },
     block() {
       while (!this.skyboxReady);
@@ -184,7 +328,7 @@ export default {
     },
 
     onMouseDown: function(e) {
-      event.preventDefault();
+      //event.preventDefault();
       let ry = new THREE.Vector2(
         (e.clientX / window.innerWidth) * 2 - 1,
         -(e.clientY / window.innerHeight) * 2 + 1
@@ -214,7 +358,7 @@ export default {
     },
 
     onTouchStart: function(e) {
-      event.preventDefault();
+      //event.preventDefault();
       let ry = new THREE.Vector2(
         (e.touches[0].clientX / window.innerWidth) * 2 - 1,
         -(e.touches[0].clientY / window.innerHeight) * 2 + 1
@@ -260,7 +404,7 @@ export default {
     },
     jumpTo: function(e) {
       this.unloadScene(this.currentScene);
-      this.currentScene = this.sceneMap[e.detail.dest];
+      this.currentScene = this.sceneMap.get(e.detail.dest);
       this.loadScene(this.currentScene);
     },
     getJumpButton: function() {
@@ -278,11 +422,7 @@ export default {
       return planeObj;
     },
     loadScene: function(sc) {
-      if (sc.bgPreSrc.length > 0) {
-        this.preLodaBgImg(sc.bgPreSrc);
-      } else {
-        this.loadBgImg(sc.bgSrc);
-      }
+      this.loadBgImg(sc.bgSrc);
       for (let obj of sc.jumpObj) {
         this.scene.add(obj);
       }
@@ -305,23 +445,6 @@ export default {
       }
       this.unloadBgImg();
     },
-    preLodaBgImg: function(src) {
-      console.log("PRELOAD", src);
-      this.preSkyBoxTexture = new THREE.TextureLoader().load(src, () => {
-        this.preSkyBoxTexture.generateMipmaps = false;
-        this.preSkyBoxTexture.magFilter = THREE.LinearFilter;
-        this.preSkyBoxTexture.minFilter = THREE.LinearFilter;
-        if (!(JSON.stringify(this.skyBoxMesh) === "{}")) {
-          this.scene.remove(this.skyBoxMesh);
-        }
-        this.preSkyBoxMat = new THREE.MeshBasicMaterial({
-          map: this.preSkyBoxTexture
-        });
-        this.skyBoxMesh = new THREE.Mesh(this.skyBoxGeom, this.preSkyBoxMat);
-        this.scene.add(this.skyBoxMesh);
-        this.loadBgImg(this.currentScene.bgSrc);
-      });
-    },
     loadBgImg: function(src) {
       console.log("LOAD", src);
       this.skyboxReady = false;
@@ -333,10 +456,6 @@ export default {
         if (!(JSON.stringify(this.skyBoxMesh) === "{}")) {
           this.scene.remove(this.skyBoxMesh);
         }
-        if (!(this.preSkyBoxTexture === null)) {
-          this.preSkyBoxMat.dispose();
-          this.preSkyBoxTexture.dispose();
-        }
         this.skyBoxMat = new THREE.MeshBasicMaterial({
           map: this.skyBoxTexture
         });
@@ -347,6 +466,26 @@ export default {
     unloadBgImg: function() {
       this.skyBoxMat.dispose();
       this.skyBoxTexture.dispose();
+      this.skyBoxPartialOK = [false, false, false, false];
+    },
+    partialLoadBgImg: function(id) {
+      this.skyBoxPartialOK[id] = true;
+      let nowname = this.currentScene.name;
+      let tex = new THREE.TextureLoader().load(
+        this.currentScene.partialSrc[id],
+        () => {
+          if (this.currentScene.name != nowname) return;
+          tex.generateMipmaps = false;
+          tex.magFilter = THREE.LinearFilter;
+          tex.minFilter = THREE.LinearFilter;
+          this.renderer.copyTextureToTexture(
+            { x: id * 1024, y: 0 },
+            tex,
+            this.skyBoxTexture
+          );
+          console.log("PL OK", id);
+        }
+      );
     },
     Update() {
       if (this.eularAngle.y > 85) {
@@ -366,9 +505,26 @@ export default {
       this.camera.target.z = 500 * Math.sin(eularRadX) * Math.sin(eularRadY);
       this.camera.lookAt(this.camera.target);
       this.renderer.render(this.scene, this.camera);
-      //this.planeObj.position.z += 0.01;
-      //if (this.planeObj.position.z > Math.PI * 2) this.planeObj.position.z = 0;
-      //console.log(this.planeObj.rotation.x);
+      this.editCenter.position.x =
+        10 * Math.sin(eularRadY) * Math.cos(eularRadX);
+      this.editCenter.position.y = 10 * Math.cos(eularRadY);
+      this.editCenter.position.z =
+        10 * Math.sin(eularRadX) * Math.sin(eularRadY);
+      if (270 <= this.eularAngle.x || this.eularAngle.x < 90) {
+        if (!this.skyBoxPartialOK[1]) {
+          this.partialLoadBgImg(1);
+        }
+        if (!this.skyBoxPartialOK[2]) {
+          this.partialLoadBgImg(2);
+        }
+      } else {
+        if (!this.skyBoxPartialOK[3]) {
+          this.partialLoadBgImg(3);
+        }
+        if (!this.skyBoxPartialOK[0]) {
+          this.partialLoadBgImg(0);
+        }
+      }
     },
 
     animate: function() {
@@ -405,6 +561,42 @@ body {
   top: 90%;
   left: 60%;
   height: 20px;
+  border: none;
+  border-radius: 10px;
+  background-color: #616161;
+  opacity: 0.7;
+  color: #000000;
+}
+.edit {
+  position: absolute;
+  top: 10%;
+  margin-left: -150px;
+  left: 50%;
+  height: 30px;
+  width: 300px;
+  border: none;
+  border-radius: 10px;
+  background-color: #616161;
+  opacity: 0.7;
+  color: #000000;
+}
+#editbar {
+  position: absolute;
+  top: 5%;
+  left: 50%;
+  margin-left: -150px;
+  width: 300px;
+  background-color: #616161;
+  opacity: 0.7;
+  color: #000000;
+}
+.editorPanel {
+  position: absolute;
+  top: 25%;
+  margin-left: -150px;
+  left: 50%;
+  height: 160px;
+  width: 300px;
   border: none;
   border-radius: 10px;
   background-color: #616161;

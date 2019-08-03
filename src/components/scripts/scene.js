@@ -3,24 +3,33 @@ import { format } from "path";
 //import * as THREE from "three";
 
 export default class sceneObj {
-  constructor(name, src, presrc = "") {
+  constructor(name, src, partialSrc) {
     this.name = name;
     this.active = false;
     this.jumpObj = [];
     this.descObj = [];
     this.normalObj = [];
     this.bgSrc = src;
-    this.bgPreSrc = presrc;
+    this.partialSrc = partialSrc;
   }
   addNormalObj(obj) {
     this.normalObj.push(obj);
   }
-  addJumpObj(obj, dest, position) {
+  addJumpObj(obj, dest, position, id = "") {
     this.calcObjPos(obj, position);
     obj.positionInfo = position;
     obj.dest = dest;
-    obj.callbk = () => {
-      //alert("OK!");
+    obj.uniqueId = id.length == 0 ? JSON.stringify(new Date().getTime()) : id;
+    obj.callbk = (scene = {}, del = false) => {
+      if (del) {
+        this.jumpObj = this.jumpObj.filter(item => {
+          return item.uniqueId != obj.uniqueId;
+        });
+        console.log("AAAAAAAAAAA", this.jumpObj);
+        scene.remove(obj);
+        this.deleteMode = false;
+        return;
+      }
       let e = new CustomEvent("jumpTo", {
         detail: { from: this.name, dest: dest },
         bubbles: false
@@ -28,20 +37,32 @@ export default class sceneObj {
       dispatchEvent(e);
     };
     this.jumpObj.push(obj);
+    return obj;
   }
-  addDescObj(obj, src, tp, position) {
+  addDescObj(obj, src, tp, position, id) {
     this.calcObjPos(obj, position);
     obj.positionInfo = position;
     obj.tp = tp;
+    obj.uniqueId = id.length == 0 ? JSON.stringify(new Date().getTime()) : id;
     obj.descSrc = src;
     if (tp == "audio") {
-      obj.callbk = () => {
+      obj.callbk = (scene = {}, del = false) => {
+        if (del) {
+          scene.remove(obj);
+          this.deleteMode = false;
+          return;
+        }
         let audio = document.getElementById("desc");
         audio.src = src;
         audio.play();
       };
     } else {
-      obj.callbk = () => {
+      obj.callbk = (scene = {}, del = false) => {
+        if (del) {
+          scene.remove(obj);
+          this.deleteMode = false;
+          return;
+        }
         let e = new CustomEvent("textDesc", {
           detail: { text: src },
           bubbles: false
@@ -66,7 +87,8 @@ export default class sceneObj {
     for (let obj of this.jumpObj) {
       jumpobj.push({
         dest: obj.dest,
-        position: obj.positionInfo
+        position: obj.positionInfo,
+        uniqueId: obj.uniqueId
       });
     }
     let descobj = [];
@@ -74,13 +96,15 @@ export default class sceneObj {
       descobj.push({
         src: obj.descSrc,
         tp: obj.tp,
-        position: obj.positionInfo
+        position: obj.positionInfo,
+        uniqueId: obj.uniqueId
       });
     }
     let retobj = {
       name: this.name,
       bgSrc: this.bgSrc,
-      bgPreSrc: this.bgPreSrc,
+      partialSrc: this.partialSrc,
+      //bgPreSrc: this.bgPreSrc,
       jumpobj: jumpobj,
       descobj: descobj
     };
@@ -93,10 +117,11 @@ export default class sceneObj {
     this.name = sceneobj.name;
     this.active = false;
     this.bgSrc = sceneobj.bgSrc;
-    this.bgPreSrc = sceneobj.bgPreSrc;
+    this.partialSrc = sceneObj.partialSrc;
+    //this.bgPreSrc = sceneobj.bgPreSrc;
     for (let o of sceneobj.jumpobj) {
       let obj = jumpObjCreator();
-      this.addJumpObj(obj, o.dest, o.position);
+      this.addJumpObj(obj, o.dest, o.position, o.uniqueId);
     }
   }
 }
