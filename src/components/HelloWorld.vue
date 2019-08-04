@@ -49,6 +49,12 @@
         <option v-for="item in getSceneNames()" :key="item">{{item}}</option>
       </select>
     </div>
+    <!--TextDesc-->
+    <div v-if="textDesc" id="textdesc">
+      <br />
+      {{textDescContent}}
+      <div v-on:click="textDesc=false" id="textdescbtn">关闭</div>
+    </div>
     <!--Scene-->
     <div id="sceneContainer" width="100%" height="100%">
       <button id="modebutton" v-if="touchMode" v-on:click="touchMode=false">切换至重力感应</button>
@@ -85,6 +91,8 @@ export default {
       edSceneName: "",
       edIconContent: "",
       edIconMode: "",
+      textDesc: false,
+      textDescContent: "",
       sceneMap: {},
       currentScene: "",
       skyBoxPartialOK: [false, false, false, false],
@@ -134,21 +142,28 @@ export default {
       return ret;
     },
     edAddIcon: function() {
+      let pos = {
+        theta: THREE.Math.degToRad(this.eularAngle.x),
+        row: 10,
+        h: this.editCenter.position.y
+      };
       if (this.edIconMode == "jump") {
         let obj = this.currentScene.addJumpObj(
-          this.getJumpButton(),
+          this.getButton("jump"),
           this.edIconContent,
-          {
-            theta: THREE.Math.degToRad(this.eularAngle.x),
-            row: 10,
-            h: this.editCenter.position.y
-          }
+          pos
         );
         this.scene.add(obj);
-        this.editorAddIcon = false;
       } else {
+        let obj = this.currentScene.addDescObj(
+          this.getButton(this.edIconMode),
+          this.edIconContent,
+          this.edIconMode,
+          pos
+        );
+        this.scene.add(obj);
       }
-      this.currentScene;
+      this.editorAddIcon = false;
     },
     edDelIcon: function() {
       event.preventDefault();
@@ -325,9 +340,14 @@ export default {
         this.onOrientationChange.bind(this)
       );
       window.addEventListener("jumpTo", this.jumpTo.bind(this));
+      window.addEventListener("textDesc", e => {
+        this.textDesc = true;
+        this.textDescContent = e.detail.text;
+      });
     },
 
     onMouseDown: function(e) {
+      if (this.textDesc) return;
       //event.preventDefault();
       let ry = new THREE.Vector2(
         (e.clientX / window.innerWidth) * 2 - 1,
@@ -336,7 +356,9 @@ export default {
       this.raycaster.setFromCamera(ry, this.camera);
       let intersections = this.raycaster.intersectObjects(this.scene.children);
       for (let obj of intersections) {
-        if (!(obj.object.callbk === undefined)) obj.object.callbk();
+        if (!(obj.object.callbk === undefined)) {
+          obj.object.callbk();
+        }
       }
       if (!this.touchMode) return;
       this.mouseDown = true;
@@ -345,6 +367,7 @@ export default {
     },
 
     onMouseMove: function(e) {
+      if (this.textDesc) return;
       if (this.mouseDown) {
         this.eularAngle.x += (this.pre.x - e.clientX) * this.mouseSpeed;
         this.eularAngle.y += (e.clientY - this.pre.y) * this.mouseSpeed;
@@ -358,6 +381,7 @@ export default {
     },
 
     onTouchStart: function(e) {
+      if (this.textDesc) return;
       //event.preventDefault();
       let ry = new THREE.Vector2(
         (e.touches[0].clientX / window.innerWidth) * 2 - 1,
@@ -376,6 +400,7 @@ export default {
 
     onTouchMove: function(e) {
       event.preventDefault();
+      if (this.textDesc) return;
       if (this.touchDown) {
         this.eularAngle.x +=
           (this.pre.x - e.touches[0].clientX) * this.touchSpeed;
@@ -403,16 +428,28 @@ export default {
       this.currentScreenOrientation = window.orientation;
     },
     jumpTo: function(e) {
+      if (!this.sceneMap.containsKey(e.detail.dest)) return;
       this.unloadScene(this.currentScene);
       this.currentScene = this.sceneMap.get(e.detail.dest);
       this.loadScene(this.currentScene);
     },
-    getJumpButton: function() {
-      let arr = "https://i.loli.net/2019/07/07/5d20d7e3486ca89261.png"; //"https://i.loli.net/2019/07/02/5d1b51a6c0c4a70528.png";
+    getButton: function(typ) {
+      let arr = "";
+      let geom;
+      if (typ == "jump") {
+        geom = new THREE.PlaneGeometry(2, 2, 10, 10);
+        arr = "https://dmsh.bupt.edu.cn/files/VR/arr.png";
+      } else if (typ == "audio") {
+        geom = new THREE.PlaneGeometry(1, 1, 10, 10);
+        arr = "https://dmsh.bupt.edu.cn/files/VR/audio.png";
+      } else {
+        geom = new THREE.PlaneGeometry(1, 1, 10, 10);
+        arr = "https://dmsh.bupt.edu.cn/files/VR/text.png";
+      }
       let tex = new THREE.TextureLoader().load(arr);
       tex.magFilter = THREE.NearestFilter;
       let planeObj = new THREE.Mesh(
-        new THREE.PlaneGeometry(2, 2, 10, 10),
+        geom,
         new THREE.MeshBasicMaterial({
           map: tex,
           alphaTest: 0.5,
@@ -542,6 +579,40 @@ export default {
 };
 </script>
 <style>
+#textdesc {
+  position: absolute;
+  top: 15%;
+  margin-left: -250px;
+  left: 50%;
+  height: 650px;
+  width: 500px;
+  border: none;
+  border-radius: 0px;
+  background-color: #ffffff;
+  color: #303030;
+  font-size: 18px;
+  line-height: 30px;
+  box-shadow: 3px 4px 10px #3a3a3a;
+  z-index: 5;
+}
+#textdescbtn {
+  position: absolute;
+  top: 610px;
+  margin-left: -250px;
+  left: 50%;
+  height: 40px;
+  width: 500px;
+  border: none;
+  border-radius: 0px;
+  background-color: #ffffff;
+  box-shadow: 0px -2px 2px #d1d1d1;
+  font-weight: bold;
+  font-size: 20px;
+  line-height: 40px;
+  text-align: center;
+  vertical-align: middle;
+  color: #303030;
+}
 body {
   margin: 0;
 }

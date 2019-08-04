@@ -39,7 +39,7 @@ export default class sceneObj {
     this.jumpObj.push(obj);
     return obj;
   }
-  addDescObj(obj, src, tp, position, id) {
+  addDescObj(obj, src, tp, position, id = "") {
     this.calcObjPos(obj, position);
     obj.positionInfo = position;
     obj.tp = tp;
@@ -71,6 +71,7 @@ export default class sceneObj {
       };
     }
     this.descObj.push(obj);
+    return obj;
   }
   calcObjPos(obj, position) {
     let row = position.row;
@@ -112,7 +113,7 @@ export default class sceneObj {
     console.log(JSON.stringify(retobj));
     return JSON.stringify(retobj);
   }
-  unstringify(str, jumpObjCreator) {
+  unstringify(str, ObjCreator) {
     let sceneobj = JSON.parse(str);
     this.name = sceneobj.name;
     this.active = false;
@@ -120,8 +121,12 @@ export default class sceneObj {
     this.partialSrc = sceneObj.partialSrc;
     //this.bgPreSrc = sceneobj.bgPreSrc;
     for (let o of sceneobj.jumpobj) {
-      let obj = jumpObjCreator();
+      let obj = ObjCreator("jump");
       this.addJumpObj(obj, o.dest, o.position, o.uniqueId);
+    }
+    for (let o of sceneobj.descobj) {
+      let obj = ObjCreator(o.tp);
+      this.addDescObj(obj, o.src, o.tp, o.position, o.uniqueId);
     }
   }
 }
