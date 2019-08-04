@@ -12,7 +12,7 @@
         <option>text</option>
       </select>
       <br />
-      <select v-if="edIconMode=='jump'" v-model="edIconContent">
+      <select v-if="edIconMode=='jump'" v-model="edIconContent" user-scalable="no">
         <option disabled value>选择场景</option>
         <option v-for="item in getSceneNames()" :key="item">{{item}}</option>
       </select>
@@ -55,6 +55,14 @@
       {{textDescContent}}
       <div v-on:click="textDesc=false" id="textdescbtn">关闭</div>
     </div>
+    <!--SelectScene-->
+    <div id="select" v-on:click="selectScene=true">切换场景</div>
+    <div v-if="selectScene" id="selectPanel">
+      <div v-for="item in getSceneNames()" :key="item" class="selectTag">
+        {{item}}
+        <img src="sceneMap.get(item).bgSrc" alt="item" width="100px" height="50px" />
+      </div>
+    </div>
     <!--Scene-->
     <div id="sceneContainer" width="100%" height="100%">
       <button id="modebutton" v-if="touchMode" v-on:click="touchMode=false">切换至重力感应</button>
@@ -83,7 +91,9 @@ export default {
   name: "HelloWorld",
   data() {
     return {
+      token: "",
       editMode: false,
+      selectScene: false,
       editCenter: {},
       editorAddIcon: false,
       editorAddScene: false,
@@ -163,6 +173,7 @@ export default {
         );
         this.scene.add(obj);
       }
+      console.log(this.currentScene.stringify());
       this.editorAddIcon = false;
     },
     edDelIcon: function() {
@@ -188,32 +199,50 @@ export default {
       });
       let compressedimg = await this.compressMap(img);
       let cutimg = await this.cutMap(img);
-      let formdata = new FormData();
-      formdata.append("file", compressedimg);
       let mini = await new Promise((resolve, reject) => {
         this.$axios
-          .post("http://localhost:3000/api/upload", formdata)
-          .then(res => {
-            resolve(res);
-          });
+          .post(
+            `https://dmsh.bupt.edu.cn/file_admin/api/resources/VR/${compressedimg.name}?override=true`,
+            compressedimg.slice(),
+            {
+              headers: { "X-Auth": this.token, "Content-Type": "text/html" }
+            }
+          )
+          .then(
+            resolve(`https://dmsh.bupt.edu.cn/files/VR/${compressedimg.name}`)
+          );
       });
-      //console.log(mini);
       let partial = [];
       for (let cimg of cutimg) {
-        formdata = new FormData();
-        formdata.append("file", cimg);
         let pt = await new Promise((resolve, reject) => {
           this.$axios
-            .post("http://localhost:3000/api/upload", formdata)
-            .then(res => {
-              resolve(res);
-            });
+            .post(
+              `https://dmsh.bupt.edu.cn/file_admin/api/resources/VR/${cimg.name}?override=true`,
+              cimg.slice(),
+              {
+                headers: { "X-Auth": this.token, "Content-Type": "text/html" }
+              }
+            )
+            .then(resolve(`https://dmsh.bupt.edu.cn/files/VR/${cimg.name}`));
         });
-        partial.push(pt.data.url);
+        partial.push(pt);
         //console.log(pt);
       }
-      let sc = new sceneObj(this.edSceneName, mini.data.url, partial);
-      this.sceneMap.set(sc.name, sc);
+      let sc = new sceneObj(this.edSceneName, mini, partial);
+      this.sceneMap.set(
+        sc.name,
+        sc
+      ); /*
+      this.$axios.post(
+        "https://dmsh.bupt.edu.cn/vr/add",
+        {
+          key: this.edSceneName,
+          value: sc.stringify()
+        },
+        {
+          headers: { "Content-Type": "application/json" }
+        }
+      );*/
     },
     edDelScene: function() {
       this.sceneMap.delete(this.edSceneName);
@@ -234,7 +263,7 @@ export default {
           let retblob = this.dataURLtoBlob(
             canvast.toDataURL("image/jpeg", 0.2)
           );
-          let ret = new File([retblob], "test.jpg");
+          let ret = new File([retblob], this.edSceneName + ".jpg");
           resolve(ret);
         };
       });
@@ -254,7 +283,7 @@ export default {
             let retblob = this.dataURLtoBlob(
               canvast.toDataURL("image/jpeg", 0.95)
             );
-            ret.push(new File([retblob], "test.jpg"));
+            ret.push(new File([retblob], i + this.edSceneName + ".jpg"));
           }
           resolve(ret);
         };
@@ -272,12 +301,12 @@ export default {
       return new Blob([u8arr], { type: mime });
     },
     sceneObjInit: function() {
-      let img0 = "http://localhost:3000/97de0ac023ea3f62ea1a0c6467e5bc6b.png";
-      let img00 = "http://localhost:3000/900aabf7c3d7a339848019734187001a.png";
-      let img01 = "http://localhost:3000/16e1531871201e40617bdc1420872bd8.png";
-      let img02 = "http://localhost:3000/2ea4e4769f475d265bac7be1383feb05.png";
-      let img03 = "http://localhost:3000/6f8b841c636b924d652bbde9881c5e19.png";
-      let scene0 = new sceneObj("校门口", img0, [img00, img01, img02, img03]);
+      let scene0 = new sceneObj();
+      scene0.unstringify(
+        '{"name":"校门口","bgSrc":"https://dmsh.bupt.edu.cn/files/VR/校门口.jpg","partialSrc":["https://dmsh.bupt.edu.cn/files/VR/0校门口.jpg","https://dmsh.bupt.edu.cn/files/VR/1校门口.jpg","https://dmsh.bupt.edu.cn/files/VR/2校门口.jpg","https://dmsh.bupt.edu.cn/files/VR/3校门口.jpg"],"jumpobj":[],"descobj":[]}',
+        this.getButton.bind(this)
+      );
+      console.log(scene0);
       this.currentScene = scene0;
       this.sceneMap = new Map();
       this.sceneMap.set(scene0.name, scene0);
@@ -428,7 +457,7 @@ export default {
       this.currentScreenOrientation = window.orientation;
     },
     jumpTo: function(e) {
-      if (!this.sceneMap.containsKey(e.detail.dest)) return;
+      if (!this.sceneMap.has(e.detail.dest)) return;
       this.unloadScene(this.currentScene);
       this.currentScene = this.sceneMap.get(e.detail.dest);
       this.loadScene(this.currentScene);
@@ -547,6 +576,7 @@ export default {
       this.editCenter.position.y = 10 * Math.cos(eularRadY);
       this.editCenter.position.z =
         10 * Math.sin(eularRadX) * Math.sin(eularRadY);
+      if (!this.skyboxReady) return;
       if (270 <= this.eularAngle.x || this.eularAngle.x < 90) {
         if (!this.skyBoxPartialOK[1]) {
           this.partialLoadBgImg(1);
@@ -570,6 +600,18 @@ export default {
     }
   },
   mounted() {
+    let bk = "https://dmsh.bupt.edu.cn/file_admin/api/login";
+    this.$axios
+      .post(bk, null, {
+        headers: { "Content-Type": "text/plain" }
+      })
+      .then(res => {
+        this.token = res.data;
+        console.log(this.token);
+      });
+    this.$axios.get("https://dmsh.bupt.edu.cn/vr/").then(res => {
+      console.log(res);
+    });
     this.sceneObjInit();
     this.rendererInit();
     this.initEventListener();
@@ -581,14 +623,17 @@ export default {
 <style>
 #textdesc {
   position: absolute;
-  top: 15%;
-  margin-left: -250px;
+  top: 10%;
+  margin-left: -125px;
   left: 50%;
-  height: 650px;
-  width: 500px;
+  height: 400px;
+  width: 210px;
   border: none;
   border-radius: 0px;
   background-color: #ffffff;
+  padding-left: 20px;
+  padding-right: 20px;
+  text-align: left;
   color: #303030;
   font-size: 18px;
   line-height: 30px;
@@ -597,11 +642,11 @@ export default {
 }
 #textdescbtn {
   position: absolute;
-  top: 610px;
-  margin-left: -250px;
+  top: 360px;
+  margin-left: -125px;
   left: 50%;
   height: 40px;
-  width: 500px;
+  width: 250px;
   border: none;
   border-radius: 0px;
   background-color: #ffffff;
@@ -616,27 +661,71 @@ export default {
 body {
   margin: 0;
 }
+#select {
+  position: absolute;
+  top: 5%;
+  left: 60%;
+  height: 20px;
+  width: 90px;
+  border: none;
+  border-radius: 5px;
+  background-color: #ffffff;
+  color: #0363b1;
+  z-index: 4;
+}
+#selectPanel {
+  position: absolute;
+  top: 10%;
+  margin-left: -125px;
+  left: 50%;
+  height: 400px;
+  width: 250px;
+  border: none;
+  border-radius: 0px;
+  background-color: #ffffff;
+  text-align: left;
+  color: #303030;
+  font-size: 18px;
+  line-height: 30px;
+  box-shadow: 3px 4px 10px #3a3a3a;
+  z-index: 5;
+}
+.selectTag {
+  height: 50px;
+  width: 210px;
+  border: none;
+  border-radius: 0px;
+  background-color: #ffffff;
+  padding-left: 20px;
+  padding-right: 20px;
+  text-align: left;
+  color: #303030;
+  font-size: 18px;
+  line-height: 30px;
+  box-shadow: 2px 2px 10px #3a3a3a;
+  z-index: 6;
+}
 #modebutton {
   position: absolute;
   top: 90%;
   left: 60%;
-  height: 20px;
+  height: 30px;
   border: none;
-  border-radius: 10px;
+  border-radius: 5px;
   background-color: #616161;
   opacity: 0.7;
-  color: #000000;
+  color: #ffffff;
 }
 #modebutton2 {
   position: absolute;
   top: 90%;
   left: 60%;
-  height: 20px;
+  height: 30px;
   border: none;
-  border-radius: 10px;
+  border-radius: 5px;
   background-color: #616161;
   opacity: 0.7;
-  color: #000000;
+  color: #ffffff;
 }
 .edit {
   position: absolute;

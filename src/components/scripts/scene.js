@@ -118,7 +118,7 @@ export default class sceneObj {
     this.name = sceneobj.name;
     this.active = false;
     this.bgSrc = sceneobj.bgSrc;
-    this.partialSrc = sceneObj.partialSrc;
+    this.partialSrc = sceneobj.partialSrc;
     //this.bgPreSrc = sceneobj.bgPreSrc;
     for (let o of sceneobj.jumpobj) {
       let obj = ObjCreator("jump");
