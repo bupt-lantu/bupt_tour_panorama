@@ -1,9 +1,20 @@
 <template>
   <div>
+    <!--SelectScene-->
+    <div v-if="!selectScene" class="select" v-on:click="selectScene=true">切换场景</div>
+    <div v-if="selectScene" id="selectPanel">
+      <div
+        v-for="item in getSceneNames()"
+        :key="item"
+        class="selectTag"
+        v-on:click="jumpTo({detail:{dest:item}});selectScene=false"
+      >{{item}}</div>
+    </div>
+    <div v-if="selectScene" class="select" v-on:click="selectScene=false">取消</div>
     <div v-if="editorAddIcon" class="editorPanel">
       <!-- ADD ICON-->
       <button v-on:click="edAddIcon()">确认</button>
-      <button v-on:click="edIconContent=''; editorAddIcon=false">取消</button>
+      <button v-on:click="edIconMode=''; edIconContent=''; editorAddIcon=false">取消</button>
       <br />
       <select v-model="edIconMode">
         <option disabled value>选择图标类型</option>
@@ -16,11 +27,8 @@
         <option disabled value>选择场景</option>
         <option v-for="item in getSceneNames()" :key="item">{{item}}</option>
       </select>
-      <input
-        v-if="edIconMode=='audio'||edIconMode=='text'"
-        v-model="edIconContent"
-        placeholder="请输入音频链接/文字介绍"
-      />
+      <input v-if="edIconMode=='audio'" v-model="edIconContent" placeholder="请输入音频链接" />
+      <textarea v-if="edIconMode=='text'" v-model="edIconContent" placeholder="请输入文字介绍" />
       <div>
         位置
         <br />
@@ -54,14 +62,6 @@
       <br />
       {{textDescContent}}
       <div v-on:click="textDesc=false" id="textdescbtn">关闭</div>
-    </div>
-    <!--SelectScene-->
-    <div id="select" v-on:click="selectScene=true">切换场景</div>
-    <div v-if="selectScene" id="selectPanel">
-      <div v-for="item in getSceneNames()" :key="item" class="selectTag">
-        {{item}}
-        <img src="sceneMap.get(item).bgSrc" alt="item" width="100px" height="50px" />
-      </div>
     </div>
     <!--Scene-->
     <div id="sceneContainer" width="100%" height="100%">
@@ -140,6 +140,23 @@ export default {
       this.scene.add(this.editCenter);
     },
     editModeOff: function() {
+      let ret = [];
+      for (let name of this.sceneMap.keys()) {
+        ret.push({
+          key: name,
+          value: this.sceneMap.get(name).stringify()
+        });
+      }
+      let retstr = JSON.stringify(ret);
+      let retblob = new Blob([retstr], { type: "text/plain" });
+      let file = new File([retblob], "vrconfig.txt");
+      this.$axios.post(
+        `https://dmsh.bupt.edu.cn/file_admin/api/resources/VR/${file.name}?override=true`,
+        file.slice(),
+        {
+          headers: { "X-Auth": this.token, "Content-Type": "text/html" }
+        }
+      );
       this.editMode = false;
       this.scene.remove(this.editCenter);
     },
@@ -174,6 +191,8 @@ export default {
         this.scene.add(obj);
       }
       console.log(this.currentScene.stringify());
+      this.edIconMode = "";
+      this.edIconContent = "";
       this.editorAddIcon = false;
     },
     edDelIcon: function() {
@@ -189,7 +208,10 @@ export default {
     edAddScene: async function() {
       this.editorAddScene = false;
       let file = document.getElementById("upload").files[0];
-      if (!file || this.edSceneName.length == 0) return;
+      if (!file || this.edSceneName.length == 0) {
+        alert("输入无效，场景添加失败");
+        return;
+      }
       let img = await new Promise((resolve, reject) => {
         let reader = new FileReader();
         reader.readAsDataURL(file);
@@ -229,20 +251,8 @@ export default {
         //console.log(pt);
       }
       let sc = new sceneObj(this.edSceneName, mini, partial);
-      this.sceneMap.set(
-        sc.name,
-        sc
-      ); /*
-      this.$axios.post(
-        "https://dmsh.bupt.edu.cn/vr/add",
-        {
-          key: this.edSceneName,
-          value: sc.stringify()
-        },
-        {
-          headers: { "Content-Type": "application/json" }
-        }
-      );*/
+      this.sceneMap.set(sc.name, sc);
+      this.edSceneName = "";
     },
     edDelScene: function() {
       this.sceneMap.delete(this.edSceneName);
@@ -300,16 +310,28 @@ export default {
       }
       return new Blob([u8arr], { type: mime });
     },
-    sceneObjInit: function() {
+    sceneObjInit: function(objs) {
+      this.sceneMap = new Map();
+      for (let obj of objs) {
+        console.log(obj.key, obj.value);
+        let sc = new sceneObj();
+        sc.unstringify(obj.value, this.getButton.bind(this));
+        if (obj.key == "校门口") {
+          console.log("XMK", sc);
+          this.currentScene = sc;
+        }
+        this.sceneMap.set(obj.key, sc);
+      }
+      console.log(this.currentScene);
+      /*
       let scene0 = new sceneObj();
       scene0.unstringify(
         '{"name":"校门口","bgSrc":"https://dmsh.bupt.edu.cn/files/VR/校门口.jpg","partialSrc":["https://dmsh.bupt.edu.cn/files/VR/0校门口.jpg","https://dmsh.bupt.edu.cn/files/VR/1校门口.jpg","https://dmsh.bupt.edu.cn/files/VR/2校门口.jpg","https://dmsh.bupt.edu.cn/files/VR/3校门口.jpg"],"jumpobj":[],"descobj":[]}',
         this.getButton.bind(this)
       );
-      console.log(scene0);
       this.currentScene = scene0;
       this.sceneMap = new Map();
-      this.sceneMap.set(scene0.name, scene0);
+      this.sceneMap.set(scene0.name, scene0);*/
     },
     rendererInit: function() {
       this.scene = new THREE.Scene();
@@ -376,7 +398,7 @@ export default {
     },
 
     onMouseDown: function(e) {
-      if (this.textDesc) return;
+      if (this.textDesc || this.selectScene) return;
       //event.preventDefault();
       let ry = new THREE.Vector2(
         (e.clientX / window.innerWidth) * 2 - 1,
@@ -396,7 +418,7 @@ export default {
     },
 
     onMouseMove: function(e) {
-      if (this.textDesc) return;
+      if (this.textDesc || this.selectScene) return;
       if (this.mouseDown) {
         this.eularAngle.x += (this.pre.x - e.clientX) * this.mouseSpeed;
         this.eularAngle.y += (e.clientY - this.pre.y) * this.mouseSpeed;
@@ -410,7 +432,7 @@ export default {
     },
 
     onTouchStart: function(e) {
-      if (this.textDesc) return;
+      if (this.textDesc || this.selectScene) return;
       //event.preventDefault();
       let ry = new THREE.Vector2(
         (e.touches[0].clientX / window.innerWidth) * 2 - 1,
@@ -428,8 +450,8 @@ export default {
     },
 
     onTouchMove: function(e) {
-      event.preventDefault();
-      if (this.textDesc) return;
+      if (!this.selectScene) event.preventDefault();
+      if (this.textDesc || this.selectScene) return;
       if (this.touchDown) {
         this.eularAngle.x +=
           (this.pre.x - e.touches[0].clientX) * this.touchSpeed;
@@ -609,13 +631,14 @@ export default {
         this.token = res.data;
         console.log(this.token);
       });
-    this.$axios.get("https://dmsh.bupt.edu.cn/vr/").then(res => {
-      console.log(res);
-    });
-    this.sceneObjInit();
-    this.rendererInit();
-    this.initEventListener();
-    this.animate();
+    this.$axios
+      .get("https://dmsh.bupt.edu.cn/files/VR/vrconfig.txt")
+      .then(res => {
+        this.sceneObjInit(res.data);
+        this.rendererInit();
+        this.initEventListener();
+        this.animate();
+      });
     //this.animate();
   }
 };
@@ -648,7 +671,6 @@ export default {
   height: 40px;
   width: 250px;
   border: none;
-  border-radius: 0px;
   background-color: #ffffff;
   box-shadow: 0px -2px 2px #d1d1d1;
   font-weight: bold;
@@ -661,7 +683,7 @@ export default {
 body {
   margin: 0;
 }
-#select {
+.select {
   position: absolute;
   top: 5%;
   left: 60%;
@@ -688,22 +710,30 @@ body {
   font-size: 18px;
   line-height: 30px;
   box-shadow: 3px 4px 10px #3a3a3a;
-  z-index: 5;
+  z-index: 10;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+}
+#selectPanel::-webkit-scrollbar {
+  display: none;
 }
 .selectTag {
+  min-height: calc(100%+1px);
+  margin-left: 5px;
+  left: 50%;
+  margin-top: 4px;
   height: 50px;
-  width: 210px;
-  border: none;
-  border-radius: 0px;
+  width: 200px;
   background-color: #ffffff;
   padding-left: 20px;
   padding-right: 20px;
-  text-align: left;
+  text-align: center;
   color: #303030;
   font-size: 18px;
-  line-height: 30px;
-  box-shadow: 2px 2px 10px #3a3a3a;
-  z-index: 6;
+  line-height: 50px;
+  border-bottom: 1px solid #d3d3d3;
+  z-index: 10;
 }
 #modebutton {
   position: absolute;
