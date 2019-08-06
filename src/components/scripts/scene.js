@@ -25,7 +25,6 @@ export default class sceneObj {
         this.jumpObj = this.jumpObj.filter(item => {
           return item.uniqueId != obj.uniqueId;
         });
-        console.log("AAAAAAAAAAA", this.jumpObj);
         scene.remove(obj);
         this.deleteMode = false;
         return;
@@ -48,6 +47,9 @@ export default class sceneObj {
     if (tp == "audio") {
       obj.callbk = (scene = {}, del = false) => {
         if (del) {
+          this.descObj = this.descObj.filter(item => {
+            return item.uniqueId != obj.uniqueId;
+          });
           scene.remove(obj);
           this.deleteMode = false;
           return;
@@ -59,6 +61,9 @@ export default class sceneObj {
     } else {
       obj.callbk = (scene = {}, del = false) => {
         if (del) {
+          this.descObj = this.descObj.filter(item => {
+            return item.uniqueId != obj.uniqueId;
+          });
           scene.remove(obj);
           this.deleteMode = false;
           return;
@@ -109,8 +114,6 @@ export default class sceneObj {
       jumpobj: jumpobj,
       descobj: descobj
     };
-    console.log(retobj);
-    console.log(JSON.stringify(retobj));
     return JSON.stringify(retobj);
   }
   unstringify(str, ObjCreator) {
