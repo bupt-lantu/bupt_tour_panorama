@@ -67,8 +67,8 @@
     <div id="sceneContainer" width="100%" height="100%">
       <button id="modebutton" v-if="touchMode" v-on:click="touchMode=false">切换至重力感应</button>
       <button id="modebutton2" v-else v-on:click="touchMode=true">恢复手动控制</button>
-      <button class="edit" v-if="!editMode" v-on:click="editModeOn()">开启编辑模式</button>
-      <button class="edit" v-else v-on:click="editModeOff()">关闭编辑模式</button>
+      <button class="edit" v-if="!editMode&&mode=='edit'" v-on:click="editModeOn()">开启编辑模式</button>
+      <button class="edit" v-if="editMode" v-on:click="editModeOff()">关闭编辑模式</button>
       <div id="editbar" v-if="editMode">
         <button v-on:click="editorAddIcon=true">添加图标</button>
         <button v-on:click="edDelIcon()">删除图标</button>
@@ -91,6 +91,7 @@ export default {
   name: "HelloWorld",
   data() {
     return {
+      mode: "",
       token: "",
       editMode: false,
       selectScene: false,
@@ -190,7 +191,6 @@ export default {
         );
         this.scene.add(obj);
       }
-      console.log(this.currentScene.stringify());
       this.edIconMode = "";
       this.edIconContent = "";
       this.editorAddIcon = false;
@@ -522,7 +522,6 @@ export default {
       this.unloadBgImg();
     },
     loadBgImg: function(src) {
-      console.log("LOAD", src);
       this.skyboxReady = false;
       this.skyBoxTexture = new THREE.TextureLoader().load(src, () => {
         this.skyboxReady = true;
@@ -559,7 +558,6 @@ export default {
             tex,
             this.skyBoxTexture
           );
-          console.log("PL OK", id);
         }
       );
     },
@@ -621,7 +619,8 @@ export default {
     this.$axios
       .get("https://dmsh.bupt.edu.cn/files/VR/vrconfig.txt")
       .then(res => {
-        this.sceneObjInit(res.data);
+        this.mode = res.data.mode;
+        this.sceneObjInit(res.data.scenes);
         this.animate();
       });
     this.rendererInit();
