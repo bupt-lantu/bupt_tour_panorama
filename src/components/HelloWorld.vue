@@ -148,7 +148,7 @@ export default {
           value: this.sceneMap.get(name).stringify()
         });
       }
-      let retstr = JSON.stringify(ret);
+      let retstr = JSON.stringify({scenes:ret,mode:this.mode});
       let retblob = new Blob([retstr], { type: "text/plain" });
       let file = new File([retblob], "vrconfig.txt");
       this.$axios.post(
