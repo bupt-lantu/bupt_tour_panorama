@@ -313,25 +313,15 @@ export default {
     sceneObjInit: function(objs) {
       this.sceneMap = new Map();
       for (let obj of objs) {
-        console.log(obj.key, obj.value);
         let sc = new sceneObj();
         sc.unstringify(obj.value, this.getButton.bind(this));
         if (obj.key == "校门口") {
-          console.log("XMK", sc);
           this.currentScene = sc;
         }
         this.sceneMap.set(obj.key, sc);
       }
-      console.log(this.currentScene);
-      /*
-      let scene0 = new sceneObj();
-      scene0.unstringify(
-        '{"name":"校门口","bgSrc":"https://dmsh.bupt.edu.cn/files/VR/校门口.jpg","partialSrc":["https://dmsh.bupt.edu.cn/files/VR/0校门口.jpg","https://dmsh.bupt.edu.cn/files/VR/1校门口.jpg","https://dmsh.bupt.edu.cn/files/VR/2校门口.jpg","https://dmsh.bupt.edu.cn/files/VR/3校门口.jpg"],"jumpobj":[],"descobj":[]}',
-        this.getButton.bind(this)
-      );
-      this.currentScene = scene0;
-      this.sceneMap = new Map();
-      this.sceneMap.set(scene0.name, scene0);*/
+      this.loadScene(this.currentScene);
+      this.scene.rotation.set(0, 0, 0);
     },
     rendererInit: function() {
       this.scene = new THREE.Scene();
@@ -347,8 +337,6 @@ export default {
       this.orientH = new orientHandler();
       this.skyBoxGeom = new THREE.SphereGeometry(100, 100, 100);
       this.skyBoxGeom.scale(1, 1, -1);
-      this.loadScene(this.currentScene);
-      this.scene.rotation.set(0, 0, 0);
       this.renderer = new THREE.WebGLRenderer({
         antialias: true,
         precision: "highp"
@@ -629,16 +617,15 @@ export default {
       })
       .then(res => {
         this.token = res.data;
-        console.log(this.token);
       });
     this.$axios
       .get("https://dmsh.bupt.edu.cn/files/VR/vrconfig.txt")
       .then(res => {
         this.sceneObjInit(res.data);
-        this.rendererInit();
-        this.initEventListener();
         this.animate();
       });
+    this.rendererInit();
+    this.initEventListener();
     //this.animate();
   }
 };
