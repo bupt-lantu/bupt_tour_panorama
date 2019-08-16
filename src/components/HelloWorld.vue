@@ -67,7 +67,7 @@
     <div id="sceneContainer" width="100%" height="100%">
       <button id="modebutton" v-if="touchMode" v-on:click="touchMode=false">切换至重力感应</button>
       <button id="modebutton2" v-else v-on:click="touchMode=true">恢复手动控制</button>
-      <button class="edit" v-if="!editMode&&mode=='edit'" v-on:click="editModeOn()">开启编辑模式</button>
+      <!--button class="edit" v-if="!editMode&&mode=='edit'" v-on:click="editModeOn()">开启编辑模式</button-->
       <button class="edit" v-if="editMode" v-on:click="editModeOff()">关闭编辑模式</button>
       <div id="editbar" v-if="editMode">
         <button v-on:click="editorAddIcon=true">添加图标</button>
@@ -91,6 +91,14 @@ export default {
   name: "HelloWorld",
   data() {
     return {
+      bigGeom: new THREE.PlaneGeometry(2, 2, 10, 10),
+      smallGeom: new THREE.PlaneGeometry(1, 1, 10, 10),
+      jumpTex: null,
+      textTex: null,
+      audioTex: null,
+      jumpMat: null,
+      textMat: null,
+      audioMat: null,
       mode: "",
       token: "",
       editMode: false,
@@ -116,7 +124,7 @@ export default {
       scene: null,
       renderer: null,
       raycaster: null,
-      skyBoxMesh: null,
+      skyBoxMesh: 0,
       mouseDown: false,
       touchDown: false,
       mouseSpeed: 0.1,
@@ -136,6 +144,7 @@ export default {
     msg: String
   },
   methods: {
+    /*
     editModeOn: function() {
       this.editMode = true;
       this.scene.add(this.editCenter);
@@ -148,7 +157,7 @@ export default {
           value: this.sceneMap.get(name).stringify()
         });
       }
-      let retstr = JSON.stringify({scenes:ret,mode:this.mode});
+      let retstr = JSON.stringify({ scenes: ret, mode: this.mode });
       let retblob = new Blob([retstr], { type: "text/plain" });
       let file = new File([retblob], "vrconfig.txt");
       this.$axios.post(
@@ -160,15 +169,15 @@ export default {
       );
       this.editMode = false;
       this.scene.remove(this.editCenter);
-    },
+    },*/
     getSceneNames: function() {
       let ret = [];
       for (let name of this.sceneMap.keys()) {
-        if (name == this.currentScene.name) continue;
+        if (name == this.currentScene) continue;
         ret.push(name);
       }
       return ret;
-    },
+    } /*
     edAddIcon: function() {
       let pos = {
         theta: THREE.Math.degToRad(this.eularAngle.x),
@@ -176,14 +185,16 @@ export default {
         h: this.editCenter.position.y
       };
       if (this.edIconMode == "jump") {
-        let obj = this.currentScene.addJumpObj(
+        let cur = this.sceneMap.get(this.currentScene);
+        let obj = cur.addJumpObj(
           this.getButton("jump"),
           this.edIconContent,
           pos
         );
         this.scene.add(obj);
       } else {
-        let obj = this.currentScene.addDescObj(
+        let cur = this.sceneMap.get(this.currentScene);
+        let obj = cur.addDescObj(
           this.getButton(this.edIconMode),
           this.edIconContent,
           this.edIconMode,
@@ -309,15 +320,19 @@ export default {
         u8arr[n] = bstr.charCodeAt(n);
       }
       return new Blob([u8arr], { type: mime });
-    },
+    },*/,
     sceneObjInit: function(objs) {
+      console.log(objs);
       this.sceneMap = new Map();
       for (let obj of objs) {
         let sc = new sceneObj();
         sc.unstringify(obj.value, this.getButton.bind(this));
-        if (obj.key == "校门口") {
+        //sc.jumpObj = [];
+        //sc.descObj = [];
+        /*if (obj.key == "校门口") {
           this.currentScene = sc;
-        }
+        }*/
+        this.currentScene = "校门口";
         this.sceneMap.set(obj.key, sc);
       }
       this.loadScene(this.currentScene);
@@ -469,57 +484,68 @@ export default {
     jumpTo: function(e) {
       if (!this.sceneMap.has(e.detail.dest)) return;
       this.unloadScene(this.currentScene);
-      this.currentScene = this.sceneMap.get(e.detail.dest);
+      //this.currentScene = null;
+      this.currentScene = e.detail.dest; //this.sceneMap.get(e.detail.dest);
       this.loadScene(this.currentScene);
     },
     getButton: function(typ) {
       let arr = "";
       let geom;
+      let mat;
       if (typ == "jump") {
-        geom = new THREE.PlaneGeometry(2, 2, 10, 10);
-        arr = "https://dmsh.bupt.edu.cn/files/VR/arr.png";
+        geom = this.bigGeom; //new THREE.PlaneGeometry(2, 2, 10, 10);
+        mat = this.jumpMat; //arr = "https://dmsh.bupt.edu.cn/files/VR/arr.png";
       } else if (typ == "audio") {
-        geom = new THREE.PlaneGeometry(1, 1, 10, 10);
-        arr = "https://dmsh.bupt.edu.cn/files/VR/audio.png";
+        geom = this.smallGeom; //new THREE.PlaneGeometry(1, 1, 10, 10);
+        mat = this.audioMat; //arr = "https://dmsh.bupt.edu.cn/files/VR/audio.png";
       } else {
-        geom = new THREE.PlaneGeometry(1, 1, 10, 10);
-        arr = "https://dmsh.bupt.edu.cn/files/VR/text.png";
+        geom = this.smallGeom; //new THREE.PlaneGeometry(1, 1, 10, 10);
+        mat = this.textMat; //arr = "https://dmsh.bupt.edu.cn/files/VR/text.png";
       }
-      let tex = new THREE.TextureLoader().load(arr);
-      tex.magFilter = THREE.NearestFilter;
+      //let tex = new THREE.TextureLoader().load(arr);
+      //tex.magFilter = THREE.NearestFilter;
+      /*
+      tex.generateMipmaps = false;
+      tex.magFilter = THREE.LinearFilter;
+      tex.minFilter = THREE.LinearFilter;*/
       let planeObj = new THREE.Mesh(
         geom,
+        mat /*
         new THREE.MeshBasicMaterial({
           map: tex,
           alphaTest: 0.5,
           side: THREE.DoubleSide
-        })
+        })*/
       );
       return planeObj;
     },
     loadScene: function(sc) {
-      this.loadBgImg(sc.bgSrc);
-      for (let obj of sc.jumpObj) {
+      let cur = this.sceneMap.get(sc);
+      this.loadBgImg(cur.bgSrc);
+
+      for (let obj of cur.jumpObj) {
         this.scene.add(obj);
       }
-      for (let obj of sc.descObj) {
+
+      for (let obj of cur.descObj) {
         this.scene.add(obj);
       }
-      for (let obj of sc.normalObj) {
+      for (let obj of cur.normalObj) {
         this.scene.add(obj);
       }
     },
     unloadScene: function(sc) {
-      for (let obj of sc.jumpObj) {
-        this.scene.remove(obj);
-      }
-      for (let obj of sc.descObj) {
-        this.scene.remove(obj);
-      }
-      for (let obj of sc.normalObj) {
-        this.scene.remove(obj);
-      }
+      let cur = this.sceneMap.get(sc);
       this.unloadBgImg();
+      for (let obj of cur.jumpObj) {
+        this.scene.remove(obj);
+      }
+      for (let obj of cur.descObj) {
+        this.scene.remove(obj);
+      }
+      for (let obj of cur.normalObj) {
+        this.scene.remove(obj);
+      }
     },
     loadBgImg: function(src) {
       this.skyboxReady = false;
@@ -527,39 +553,68 @@ export default {
         this.skyboxReady = true;
         this.skyBoxTexture.generateMipmaps = false;
         this.skyBoxTexture.magFilter = THREE.LinearFilter;
-        this.skyBoxTexture.minFilter = THREE.LinearFilter;
+        this.skyBoxTexture.minFilter =
+          THREE.LinearFilter; /*
         if (!(JSON.stringify(this.skyBoxMesh) === "{}")) {
           this.scene.remove(this.skyBoxMesh);
-        }
-        this.skyBoxMat = new THREE.MeshBasicMaterial({
+          this.skyBoxMesh = null;
+        }*/
+        /*this.skyBoxMat.map  = new THREE.MeshBasicMaterial({
           map: this.skyBoxTexture
-        });
-        this.skyBoxMesh = new THREE.Mesh(this.skyBoxGeom, this.skyBoxMat);
-        this.scene.add(this.skyBoxMesh);
+        });*/
+
+        if (this.skyBoxMesh == 0) {
+          this.skyBoxMat = new THREE.MeshBasicMaterial({
+            map: this.skyBoxTexture
+          });
+          this.skyBoxMesh = new THREE.Mesh(this.skyBoxGeom, this.skyBoxMat);
+          this.scene.add(this.skyBoxMesh);
+        } else {
+          this.skyBoxMat.map = this.skyBoxTexture;
+        }
+
+        //this.skyBoxMesh = new THREE.Mesh(this.skyBoxGeom, this.skyBoxMat);
+        //this.scene.add(this.skyBoxMesh);
       });
     },
     unloadBgImg: function() {
-      this.skyBoxMat.dispose();
+      this.skyBoxMat.map.dispose();
+      this.skyBoxMat.map = null;
+
+      /*this.skyBoxMat.dispose();*/
       this.skyBoxTexture.dispose();
+      this.skyBoxTexture = null;
+      //this.skyBoxMat = null;
       this.skyBoxPartialOK = [false, false, false, false];
     },
     partialLoadBgImg: function(id) {
       this.skyBoxPartialOK[id] = true;
-      let nowname = this.currentScene.name;
-      let tex = new THREE.TextureLoader().load(
-        this.currentScene.partialSrc[id],
-        () => {
-          if (this.currentScene.name != nowname) return;
-          tex.generateMipmaps = false;
-          tex.magFilter = THREE.LinearFilter;
-          tex.minFilter = THREE.LinearFilter;
-          this.renderer.copyTextureToTexture(
-            { x: id * 1024, y: 0 },
-            tex,
-            this.skyBoxTexture
-          );
-        }
-      );
+      let nowname = this.currentScene;
+      let src = this.sceneMap.get(this.currentScene).partialSrc[id];
+      let tm = window.setTimeout(() => {
+        let tex = new THREE.TextureLoader().load(
+          src,
+          /*this.sceneMap.get(this.currentScene).partialSrc[id],*/
+          () => {
+            if (this.currentScene != nowname) {
+              tex.dispose();
+              tex = null;
+              return;
+            }
+            tex.generateMipmaps = false;
+            tex.magFilter = THREE.LinearFilter;
+            tex.minFilter = THREE.LinearFilter;
+            this.renderer.copyTextureToTexture(
+              { x: id * 1024, y: 0 },
+              tex,
+              this.skyBoxTexture
+            );
+            tex.dispose();
+            tex = null;
+          }
+        );
+        window.clearTimeout(tm);
+      }, 100);
     },
     Update() {
       if (this.eularAngle.y > 85) {
@@ -584,6 +639,7 @@ export default {
       this.editCenter.position.y = 10 * Math.cos(eularRadY);
       this.editCenter.position.z =
         10 * Math.sin(eularRadX) * Math.sin(eularRadY);
+
       if (!this.skyboxReady) return;
       if (270 <= this.eularAngle.x || this.eularAngle.x < 90) {
         if (!this.skyBoxPartialOK[1]) {
@@ -608,6 +664,30 @@ export default {
     }
   },
   mounted() {
+    this.jumpTex = new THREE.TextureLoader().load(
+      "https://dmsh.bupt.edu.cn/files/VR/arr.png"
+    );
+    this.textTex = new THREE.TextureLoader().load(
+      "https://dmsh.bupt.edu.cn/files/VR/text.png"
+    );
+    this.audioTex = new THREE.TextureLoader().load(
+      "https://dmsh.bupt.edu.cn/files/VR/audio.png"
+    );
+    this.jumpMat = new THREE.MeshBasicMaterial({
+      map: this.jumpTex,
+      alphaTest: 0.5,
+      side: THREE.DoubleSide
+    });
+    this.audioMat = new THREE.MeshBasicMaterial({
+      map: this.audioTex,
+      alphaTest: 0.5,
+      side: THREE.DoubleSide
+    });
+    this.textMat = new THREE.MeshBasicMaterial({
+      map: this.textTex,
+      alphaTest: 0.5,
+      side: THREE.DoubleSide
+    });
     let bk = "https://dmsh.bupt.edu.cn/file_admin/api/login";
     this.$axios
       .post(bk, null, {
@@ -705,7 +785,6 @@ body {
   display: none;
 }
 .selectTag {
-  min-height: calc(100%+1px);
   margin-left: 5px;
   left: 50%;
   margin-top: 4px;
