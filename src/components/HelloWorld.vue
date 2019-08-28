@@ -161,7 +161,7 @@ export default {
       let retblob = new Blob([retstr], { type: "text/plain" });
       let file = new File([retblob], "vrconfig.txt");
       this.$axios.post(
-        `https://dmsh.bupt.edu.cn/file_admin/api/resources/VR/${file.name}?override=true`,
+        `https://dmsh.bupt.edu.cn/file_admin/api/resources/XTCVR/${file.name}?override=true`,
         file.slice(),
         {
           headers: { "X-Auth": this.token, "Content-Type": "text/html" }
@@ -235,14 +235,14 @@ export default {
       let mini = await new Promise((resolve, reject) => {
         this.$axios
           .post(
-            `https://dmsh.bupt.edu.cn/file_admin/api/resources/VR/${compressedimg.name}?override=true`,
+            `https://dmsh.bupt.edu.cn/file_admin/api/resources/XTCVR/${compressedimg.name}?override=true`,
             compressedimg.slice(),
             {
               headers: { "X-Auth": this.token, "Content-Type": "text/html" }
             }
           )
           .then(
-            resolve(`https://dmsh.bupt.edu.cn/files/VR/${compressedimg.name}`)
+            resolve(`https://dmsh.bupt.edu.cn/files/XTCVR/${compressedimg.name}`)
           );
       });
       let partial = [];
@@ -250,13 +250,13 @@ export default {
         let pt = await new Promise((resolve, reject) => {
           this.$axios
             .post(
-              `https://dmsh.bupt.edu.cn/file_admin/api/resources/VR/${cimg.name}?override=true`,
+              `https://dmsh.bupt.edu.cn/file_admin/api/resources/XTCVR/${cimg.name}?override=true`,
               cimg.slice(),
               {
                 headers: { "X-Auth": this.token, "Content-Type": "text/html" }
               }
             )
-            .then(resolve(`https://dmsh.bupt.edu.cn/files/VR/${cimg.name}`));
+            .then(resolve(`https://dmsh.bupt.edu.cn/files/XTCVR/${cimg.name}`));
         });
         partial.push(pt);
         //console.log(pt);
@@ -697,7 +697,7 @@ export default {
         this.token = res.data;
       });
     this.$axios
-      .get("https://dmsh.bupt.edu.cn/files/VR/vrconfig.txt")
+      .get("https://dmsh.bupt.edu.cn/files/XTCVR/vrconfig.txt")
       .then(res => {
         this.mode = res.data.mode;
         this.sceneObjInit(res.data.scenes);
