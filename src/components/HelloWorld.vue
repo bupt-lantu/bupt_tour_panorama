@@ -67,7 +67,7 @@
     <div id="sceneContainer" width="100%" height="100%">
       <button id="modebutton" v-if="touchMode" v-on:click="touchMode=false">切换至重力感应</button>
       <button id="modebutton2" v-else v-on:click="touchMode=true">恢复手动控制</button>
-      <!--button class="edit" v-if="!editMode&&mode=='edit'" v-on:click="editModeOn()">开启编辑模式</button-->
+      <button class="edit" v-if="!editMode&&mode=='edit'" v-on:click="editModeOn()">开启编辑模式</button>
       <button class="edit" v-if="editMode" v-on:click="editModeOff()">关闭编辑模式</button>
       <div id="editbar" v-if="editMode">
         <button v-on:click="editorAddIcon=true">添加图标</button>
@@ -144,7 +144,6 @@ export default {
     msg: String
   },
   methods: {
-    /*
     editModeOn: function() {
       this.editMode = true;
       this.scene.add(this.editCenter);
@@ -169,7 +168,7 @@ export default {
       );
       this.editMode = false;
       this.scene.remove(this.editCenter);
-    },*/
+    },
     getSceneNames: function() {
       let ret = [];
       for (let name of this.sceneMap.keys()) {
@@ -177,7 +176,7 @@ export default {
         ret.push(name);
       }
       return ret;
-    } /*
+    },
     edAddIcon: function() {
       let pos = {
         theta: THREE.Math.degToRad(this.eularAngle.x),
@@ -242,7 +241,9 @@ export default {
             }
           )
           .then(
-            resolve(`https://dmsh.bupt.edu.cn/files/XTCVR/${compressedimg.name}`)
+            resolve(
+              `https://dmsh.bupt.edu.cn/files/XTCVR/${compressedimg.name}`
+            )
           );
       });
       let partial = [];
@@ -320,7 +321,7 @@ export default {
         u8arr[n] = bstr.charCodeAt(n);
       }
       return new Blob([u8arr], { type: mime });
-    },*/,
+    },
     sceneObjInit: function(objs) {
       console.log(objs);
       this.sceneMap = new Map();
