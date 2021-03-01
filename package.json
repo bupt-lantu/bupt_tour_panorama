@@ -10,7 +10,7 @@
   "dependencies": {
     "axios": "^0.19.0",
     "core-js": "^2.6.5",
-    "three": "^0.104.0",
+    "three": "^0.125.0",
     "vue": "^2.6.10"
   },
   "devDependencies": {
